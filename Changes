@@ -1,5 +1,6 @@
 v0.14-dev
 
++ Update dependencies and README instructions.
 + Add new “i” key to list an abbreviated inventory summary. You still need to
   use specific keys for quaffing, throwing or evoking, but you can now monitor
   all of them with a single glance (feature suggested by a player).

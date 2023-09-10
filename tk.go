@@ -1,4 +1,4 @@
-// +build tk
+//go:build tk
 
 package main
 
@@ -10,7 +10,7 @@ import (
 	"image/png"
 	"unicode/utf8"
 
-	"github.com/nsf/gothic"
+	"codeberg.org/anaseto/gothic"
 )
 
 type gameui struct {

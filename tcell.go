@@ -1,11 +1,11 @@
-// +build tcell
+//go:build !js && !tk && !ansi
 
 package main
 
 import (
 	"runtime"
 
-	"github.com/gdamore/tcell"
+	"github.com/gdamore/tcell/v2"
 )
 
 type gameui struct {
@@ -55,7 +55,7 @@ func (ui *gameui) Flush() {
 			fg = Map16ColorTo8Color(fg)
 			bg = Map16ColorTo8Color(bg)
 		}
-		st = st.Foreground(tcell.Color(fg)).Background(tcell.Color(bg))
+		st = st.Foreground(tcell.ColorValid + tcell.Color(fg)).Background(tcell.ColorValid + tcell.Color(bg))
 		ui.Screen.SetContent(cdraw.X, cdraw.Y, cell.R, nil, st)
 	}
 	//ui.g.Printf("%d %d %d", ui.g.DrawFrame, ui.g.DrawFrameStart, len(ui.g.DrawLog))

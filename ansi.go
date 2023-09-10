@@ -1,3 +1,4 @@
+//go:build ansi
 // +build ansi
 
 package main

@@ -27,39 +27,40 @@ Install from Sources
 In all cases, you need first to perform the following preliminaries:
 
 + Install the [go compiler](https://golang.org/).
-+ Set `$GOPATH` variable (for example `export GOPATH=$HOME/go`, the default
-  value in recent Go versions).
-+ Add `$GOPATH/bin` to your `$PATH` (for example `export PATH="$PATH:$GOPATH/bin"`).
++ Add `$(go env GOPATH)/bin` to your `$PATH` (for example `export PATH="$PATH:$(go env GOPATH)/bin"`).
 
 ### ASCII
 
 You can build a native ASCII version from source by using this command:
 
-+ `go get -u git.tuxfamily.org/boohu/boohu.git`.
+    go install
+
+Alternatively, you may use the `go build -o /path/to/bin/boohu` to put the
+resulting binary in a particular place.
   
 The `boohu` command should now be available (you may have to rename it to
 remove the `.git` suffix).
 
-The only dependency outside of the go standard library is the lightweight
-curses-like library [termbox-go](https://github.com/nsf/termbox-go), which is
-installed automatically by the previous `go get` command.
+The only dependency outside of the go standard library is the
+curses-like library [tcell](https://github.com/gdamore/tcell), which is
+installed automatically by the previous `go install` command.
 
-*Portability note.* If you happen to experience input problems, try adding
-option `--tags tcell` or `--tags ansi` to the `go get` command. The first will use
-[tcell](https://github.com/gdamore/tcell) instead of termbox-go, which is more
-portable (works on OpenBSD). The second will work on POSIX systems with a
-`stty` command.
+*Portability note.* If you want to avoid a dependency, try adding `--tags ansi`
+to the `go install` command. It will work on POSIX systems with a `stty` command,
+but has more limited functionality.
 
 ### Tiles
 
 You can build a graphical version depending on Tcl/Tk (8.6) using this command:
 
-    go get -u --tags tk git.tuxfamily.org/boohu/boohu.git
+	go install --tags tk
 
-This will install the [gothic](https://github.com/nsf/gothic) Go bindings for
-Tcl/Tk. You need to install Tcl/Tk first.
+This will install the [gothic](https://codeberg.org/anaseto/gothic) Go bindings
+for Tcl/Tk. You need to install Tcl/Tk first.
 
-With Go 1.11 or later, you can also build the WebAssembly version with:
+### Browser (Tiles or ASCII)
+
+You can also build a WebAssembly version with:
 
     GOOS=js GOARCH=wasm go build --tags js -o boohu.wasm
 
