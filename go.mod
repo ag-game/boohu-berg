@@ -4,6 +4,7 @@ go 1.17
 
 require (
 	codeberg.org/anaseto/gothic v0.2.0
+	codeberg.org/anaseto/gruid v0.23.0
 	github.com/gdamore/tcell/v2 v2.6.0
 )
 

@@ -1,69 +1,54 @@
 package main
 
-type raynode struct {
-	Cost int
+import (
+	"codeberg.org/anaseto/gruid"
+	"codeberg.org/anaseto/gruid/paths"
+	"codeberg.org/anaseto/gruid/rl"
+)
+
+func visionRange(p gruid.Point, radius int) gruid.Range {
+	drg := gruid.NewRange(0, 0, DungeonWidth, DungeonHeight)
+	delta := gruid.Point{radius, radius}
+	return drg.Intersect(gruid.Range{Min: p.Sub(delta), Max: p.Add(delta).Shift(1, 1)})
 }
 
-type rayMap map[position]raynode
-
-func (g *game) bestParent(rm rayMap, from, pos position) (position, int) {
-	p := pos.Parents(from)
-	b := p[0]
-	if len(p) > 1 && rm[p[1]].Cost+g.losCost(p[1]) < rm[b].Cost+g.losCost(b) {
-		b = p[1]
-	}
-	return b, rm[b].Cost + g.losCost(b)
+type lighter struct {
+	g       *game
+	maxCost int
 }
 
-func (g *game) losCost(pos position) int {
-	if g.Player.Pos == pos {
-		return 0
+func (lt *lighter) Cost(src, from, to gruid.Point) int {
+	g := lt.g
+	wallcost := lt.maxCost
+	// no terrain cost on origin
+	if src == from {
+		return paths.DistanceChebyshev(to, from)
 	}
-	c := g.Dungeon.Cell(pos)
+	// from terrain specific costs
+	pfrom := point2Pos(from)
+	c := g.Dungeon.Cell(pfrom)
 	if c.T == WallCell {
-		return g.LosRange()
+		return wallcost
 	}
-	if _, ok := g.Clouds[pos]; ok {
-		return g.LosRange()
+	if _, ok := g.Clouds[pfrom]; ok {
+		return wallcost
 	}
-	if _, ok := g.Doors[pos]; ok {
-		if pos != g.Player.Pos {
-			mons := g.MonsterAt(pos)
-			if !mons.Exists() {
-				return g.LosRange()
+	if _, ok := g.Doors[pfrom]; ok {
+		if from != src {
+			mons := g.MonsterAt(pfrom)
+			if !mons.Exists() && pfrom != g.Player.Pos {
+				return wallcost
 			}
 		}
 	}
-	if _, ok := g.Fungus[pos]; ok {
-		return g.LosRange() - 1
+	if _, ok := g.Fungus[pfrom]; ok {
+		return wallcost + paths.DistanceChebyshev(to, from) - 3
 	}
-	return 1
+	return paths.DistanceChebyshev(to, from)
 }
 
-func (g *game) buildRayMap(from position, distance int) rayMap {
-	rm := rayMap{}
-	rm[from] = raynode{Cost: 0}
-	for d := 1; d <= distance; d++ {
-		for x := -d + from.X; x <= d+from.X; x++ {
-			for _, pos := range []position{{x, from.Y + d}, {x, from.Y - d}} {
-				if !pos.valid() {
-					continue
-				}
-				_, c := g.bestParent(rm, from, pos)
-				rm[pos] = raynode{Cost: c}
-			}
-		}
-		for y := -d + 1 + from.Y; y <= d-1+from.Y; y++ {
-			for _, pos := range []position{{from.X + d, y}, {from.X - d, y}} {
-				if !pos.valid() {
-					continue
-				}
-				_, c := g.bestParent(rm, from, pos)
-				rm[pos] = raynode{Cost: c}
-			}
-		}
-	}
-	return rm
+func (lt *lighter) MaxCost(src gruid.Point) int {
+	return lt.maxCost
 }
 
 func (g *game) LosRange() int {
@@ -107,17 +92,42 @@ func (g *game) StopAuto() {
 	}
 }
 
+func (g *game) blocksSSCLOS(p gruid.Point) bool {
+	return g.Dungeon.Cell(point2Pos(p)).T != WallCell
+}
+
 func (g *game) ComputeLOS() {
-	m := map[position]bool{}
+	if g.Player.LOS == nil {
+		g.Player.LOS = map[position]bool{}
+	}
+	for k := range g.Player.LOS {
+		delete(g.Player.LOS, k)
+	}
 	losRange := g.LosRange()
-	g.Player.Rays = g.buildRayMap(g.Player.Pos, losRange)
-	for pos, n := range g.Player.Rays {
-		if n.Cost < g.LosRange() {
-			m[pos] = true
-			g.SeePosition(pos)
+	p := pos2Point(g.Player.Pos)
+	if g.Player.FOV == nil {
+		g.Player.FOV = rl.NewFOV(visionRange(p, losRange))
+	} else {
+		g.Player.FOV.SetRange(visionRange(p, losRange))
+	}
+	lt := &lighter{g: g, maxCost: losRange}
+	g.Player.FOV.SetRange(visionRange(p, losRange))
+	lnodes := g.Player.FOV.VisionMap(lt, p)
+	g.Player.FOV.SSCVisionMap(
+		p, losRange,
+		g.blocksSSCLOS,
+		true,
+	)
+	for _, n := range lnodes {
+		if !g.Player.FOV.Visible(n.P) {
+			continue
+		}
+		if n.Cost <= losRange {
+			pp := point2Pos(n.P)
+			g.Player.LOS[pp] = true
+			g.SeePosition(pp)
 		}
 	}
-	g.Player.LOS = m
 	for _, mons := range g.Monsters {
 		if mons.Exists() && g.Player.LOS[mons.Pos] {
 			if mons.Seen {
@@ -213,15 +223,13 @@ func (g *game) ComputeExclusion(pos position, toggle bool) {
 }
 
 func (g *game) Ray(pos position) []position {
-	if !g.Player.LOS[pos] {
-		return nil
+	lt := &lighter{maxCost: g.LosRange(), g: g}
+	lnodes := g.Player.FOV.Ray(lt, pos2Point(pos))
+	ps := []position{}
+	for i := len(lnodes) - 1; i > 0; i-- {
+		ps = append(ps, point2Pos(lnodes[i].P))
 	}
-	ray := []position{}
-	for pos != g.Player.Pos {
-		ray = append(ray, pos)
-		pos, _ = g.bestParent(g.Player.Rays, g.Player.Pos, pos)
-	}
-	return ray
+	return ps
 }
 
 func (g *game) ComputeRayHighlight(pos position) {

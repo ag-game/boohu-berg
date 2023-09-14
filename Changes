@@ -1,13 +1,18 @@
 v0.14-dev
 
 + Update dependencies and README instructions.
++ New field of view algorithm backported and adapted from Harmonist using
+  the gruid library, with expanding shadows (symmetric shadow casting combined
+  with the previous algorithm).
 + Add new “i” key to list an abbreviated inventory summary. You still need to
   use specific keys for quaffing, throwing or evoking, but you can now monitor
   all of them with a single glance (feature suggested by a player).
 + Fix some remaining messages about “magical stairs” insetad of “magical
   monolith”.
 + Backport some more UI improvements from Harmonist (like reset config if
-  outdated).
+  outdated). Boohu still doesn't use gruid for the UI, as it would require a
+  lot of work to migrate from the current awkward (but working) UI code, so
+  we're limited on how much we can do UI-wise.
 
 -----------------------------------------------------------------------------
 v0.13 2019-11-19

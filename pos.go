@@ -1,10 +1,21 @@
 package main
 
-import "fmt"
+import (
+	"codeberg.org/anaseto/gruid"
+	"fmt"
+)
 
 type position struct {
 	X int
 	Y int
+}
+
+func pos2Point(pos position) gruid.Point {
+	return gruid.Point{X: pos.X, Y: pos.Y}
+}
+
+func point2Pos(p gruid.Point) position {
+	return position{X: p.X, Y: p.Y}
 }
 
 func (pos position) E() position {

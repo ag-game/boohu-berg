@@ -1,6 +1,7 @@
 package main
 
 import (
+	"codeberg.org/anaseto/gruid/rl"
 	"errors"
 	"fmt"
 )
@@ -20,7 +21,7 @@ type player struct {
 	Pos         position
 	Target      position
 	LOS         map[position]bool
-	Rays        rayMap
+	FOV         *rl.FOV
 	Bored       int
 	AccScore    int
 	Blocked     bool
