@@ -347,7 +347,7 @@ func (g *game) InitPlayer() {
 		}
 	}
 	g.StoryPrintf("Started with %s", items)
-	g.Player.Rods = map[rod]rodProps{r: rodProps{r.MaxCharge() - 1}}
+	g.Player.Rods = map[rod]rodProps{r: {r.MaxCharge() - 1}}
 	g.Player.Statuses = map[status]int{}
 	g.Player.Expire = map[status]int{}
 
@@ -618,7 +618,7 @@ func (g *game) InitLevel() {
 	// initialize LOS
 	if g.Depth == 1 {
 		g.Print("You're in Hareka's Underground searching for medicinal simellas. Good luck!")
-		g.PrintStyled("► Press ? for help on keys or use the mouse and [buttons].", logSpecial)
+		g.PrintStyled("► Type ? for help on keys or use the mouse and [buttons].", logSpecial)
 	}
 	if g.Depth == WinDepth {
 		g.PrintStyled("You feel magic in the air. A first way out is close!", logSpecial)
@@ -679,7 +679,7 @@ func (g *game) CleanEvents() {
 
 func (g *game) StairsSlice() []position {
 	stairs := []position{}
-	for stairPos, _ := range g.Stairs {
+	for stairPos := range g.Stairs {
 		if g.Dungeon.Cell(stairPos).Explored {
 			stairs = append(stairs, stairPos)
 		}

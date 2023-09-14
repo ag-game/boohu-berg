@@ -1411,9 +1411,9 @@ loop:
 		ui.DrawDungeonView(TargetingMode)
 		ui.DrawInfoLine(g.InfoEntry)
 		if !ui.Small() {
-			st := " Examine/Travel (? for help) "
+			st := " Examine/Travel (Type ? for help) "
 			if _, ok := targ.(*examiner); !ok {
-				st = " Targeting (? for help) "
+				st = " Targeting (Type ? for help) "
 			}
 			ui.DrawStyledTextLine(st, DungeonHeight+2, FooterLine)
 		}
