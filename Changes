@@ -7,7 +7,7 @@ v0.14-dev
 + Add new “i” key to list an abbreviated inventory summary. You still need to
   use specific keys for quaffing, throwing or evoking, but you can now monitor
   all of them with a single glance (feature suggested by a player).
-+ Fix some remaining messages about “magical stairs” insetad of “magical
++ Fix some remaining messages about “magical stairs” instead of “magical
   monolith”.
 + Backport some more UI improvements from Harmonist (like reset config if
   outdated). Boohu still doesn't use gruid for the UI, as it would require a
