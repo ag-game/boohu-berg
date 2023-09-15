@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+
+	"codeberg.org/anaseto/gruid"
 )
 
 var ch chan uiInput
