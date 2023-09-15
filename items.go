@@ -1,6 +1,7 @@
 package main
 
 import (
+	"codeberg.org/anaseto/gruid"
 	"errors"
 	"fmt"
 	"sort"
@@ -317,15 +318,19 @@ func (g *game) QuaffLignification(ev event) error {
 	return nil
 }
 
+func idx(p gruid.Point) int {
+	return p.Y*DungeonWidth + p.X
+}
+
 func (g *game) QuaffMagicMapping(ev event) error {
 	dp := &dungeonPath{dungeon: g.Dungeon}
-	g.AutoExploreDijkstra(dp, []int{g.Player.Pos.idx()})
+	nodes := g.PR.BreadthFirstMap(dp, []gruid.Point{pos2Point(g.Player.Pos)}, unreachable)
 	cdists := make(map[int][]int)
-	for i, dist := range DijkstraMapCache {
-		cdists[dist] = append(cdists[dist], i)
+	for _, n := range nodes {
+		cdists[n.Cost] = append(cdists[n.Cost], idx(n.P))
 	}
 	var dists []int
-	for dist, _ := range cdists {
+	for dist := range cdists {
 		dists = append(dists, dist)
 	}
 	sort.Ints(dists)
@@ -641,8 +646,9 @@ func (g *game) ThrowConfuseMagara(ev event) error {
 
 func (g *game) NightFog(at position, radius int, ev event) {
 	dij := &normalPath{game: g}
-	nm := Dijkstra(dij, []position{at}, radius)
-	for pos := range nm {
+	nodes := g.PR.BreadthFirstMap(dij, []gruid.Point{pos2Point(at)}, radius)
+	for _, n := range nodes {
+		pos := point2Pos(n.P)
 		_, ok := g.Clouds[pos]
 		if !ok {
 			g.Clouds[pos] = CloudNight

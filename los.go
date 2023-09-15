@@ -249,14 +249,15 @@ func (g *game) ComputeNoise() {
 	if g.Player.Aptitudes[AptHear] {
 		rg++
 	}
-	nm := Dijkstra(dij, []position{g.Player.Pos}, rg)
+	nodes := g.PR.BreadthFirstMap(dij, []gruid.Point{pos2Point(g.Player.Pos)}, rg)
 	count := 0
 	noise := map[position]bool{}
 	rmax := 3
 	if g.Player.Aptitudes[AptHear] {
 		rmax--
 	}
-	for pos := range nm {
+	for _, n := range nodes {
+		pos := point2Pos(n.P)
 		if g.Player.LOS[pos] {
 			continue
 		}

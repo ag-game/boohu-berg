@@ -1,6 +1,7 @@
 package main
 
 import (
+	"codeberg.org/anaseto/gruid"
 	"codeberg.org/anaseto/gruid/rl"
 	"errors"
 	"fmt"
@@ -469,8 +470,10 @@ func (g *game) MPRegen(ev event) {
 
 func (g *game) Smoke(ev event) {
 	dij := &normalPath{game: g}
-	nm := Dijkstra(dij, []position{g.Player.Pos}, 2)
-	for pos := range nm {
+	const radius = 2
+	nodes := g.PR.BreadthFirstMap(dij, []gruid.Point{pos2Point(g.Player.Pos)}, radius)
+	for _, n := range nodes {
+		pos := point2Pos(n.P)
 		_, ok := g.Clouds[pos]
 		if !ok {
 			g.Clouds[pos] = CloudFog

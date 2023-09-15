@@ -18,6 +18,15 @@ func point2Pos(p gruid.Point) position {
 	return position{X: p.X, Y: p.Y}
 }
 
+func points2Pos(ps []gruid.Point) []position {
+	// TODO: migrate position to gruid.Point and remove this
+	rs := make([]position, 0, len(ps))
+	for _, p := range ps {
+		rs = append(rs, point2Pos(p))
+	}
+	return rs
+}
+
 func (pos position) E() position {
 	return position{pos.X + 1, pos.Y}
 }
@@ -265,6 +274,10 @@ func (pos position) RandomNeighborCardinal() position {
 
 func idxtopos(i int) position {
 	return position{i % DungeonWidth, i / DungeonWidth}
+}
+
+func idxtopoint(i int) gruid.Point {
+	return gruid.Point{i % DungeonWidth, i / DungeonWidth}
 }
 
 func (pos position) idx() int {

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"codeberg.org/anaseto/gruid"
+	"codeberg.org/anaseto/gruid/paths"
 	"container/heap"
 	"fmt"
 )
@@ -50,6 +52,8 @@ type game struct {
 	Autoexploring       bool
 	DijkstraMapRebuild  bool
 	Targeting           position
+	PR                  *paths.PathRange
+	PRauto              *paths.PathRange
 	AutoTarget          position
 	AutoDir             direction
 	AutoHalt            bool
@@ -475,6 +479,8 @@ func (g *game) InitFirstLevel() {
 	if RandInt(4) == 0 {
 		g.GenPlan[6], g.GenPlan[7] = g.GenPlan[7], g.GenPlan[6]
 	}
+	g.PR = paths.NewPathRange(gruid.NewRange(0, 0, DungeonWidth, DungeonHeight))
+	g.PRauto = paths.NewPathRange(gruid.NewRange(0, 0, DungeonWidth, DungeonHeight))
 }
 
 func (g *game) InitLevel() {

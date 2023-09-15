@@ -1,6 +1,7 @@
 package main
 
 import (
+	"codeberg.org/anaseto/gruid"
 	"errors"
 	"fmt"
 )
@@ -414,8 +415,9 @@ func (g *game) EvokeRodFog(ev event) error {
 
 func (g *game) Fog(at position, radius int, ev event) {
 	dij := &normalPath{game: g}
-	nm := Dijkstra(dij, []position{at}, radius)
-	for pos := range nm {
+	nodes := g.PR.BreadthFirstMap(dij, []gruid.Point{pos2Point(at)}, radius)
+	for _, n := range nodes {
+		pos := point2Pos(n.P)
 		_, ok := g.Clouds[pos]
 		if !ok {
 			g.Clouds[pos] = CloudFog

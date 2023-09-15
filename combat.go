@@ -2,6 +2,8 @@
 
 package main
 
+import "codeberg.org/anaseto/gruid"
+
 func (g *game) Absorb(armor int) int {
 	absorb := 0
 	for i := 0; i <= 2; i++ {
@@ -59,7 +61,8 @@ func (m *monster) InflictDamage(g *game, damage, max int) {
 	case QueenStone:
 		g.MakeNoise(QueenStoneNoise, g.Player.Pos)
 		dij := &normalPath{game: g}
-		nm := Dijkstra(dij, []position{g.Player.Pos}, 2)
+		const radius = 2
+		g.PR.BreadthFirstMap(dij, []gruid.Point{pos2Point(g.Player.Pos)}, radius)
 		for _, m := range g.Monsters {
 			if !m.Exists() {
 				continue
@@ -67,8 +70,8 @@ func (m *monster) InflictDamage(g *game, damage, max int) {
 			if m.State == Resting {
 				continue
 			}
-			_, ok := nm[m.Pos]
-			if !ok {
+			c := g.PR.BreadthFirstMapAt(pos2Point(m.Pos))
+			if c > radius {
 				continue
 			}
 			m.EnterConfusion(g, g.Ev)
@@ -112,7 +115,7 @@ func (g *game) MakeMonstersAware() {
 
 func (g *game) MakeNoise(noise int, at position) {
 	dij := &normalPath{game: g}
-	nm := Dijkstra(dij, []position{at}, noise)
+	g.PR.BreadthFirstMap(dij, []gruid.Point{pos2Point(at)}, noise)
 	for _, m := range g.Monsters {
 		if !m.Exists() {
 			continue
@@ -120,12 +123,11 @@ func (g *game) MakeNoise(noise int, at position) {
 		if m.State == Hunting {
 			continue
 		}
-		n, ok := nm[m.Pos]
-		if !ok {
+		c := g.PR.BreadthFirstMapAt(pos2Point(m.Pos))
+		if c > noise {
 			continue
 		}
-		d := n.Cost
-		v := noise - d
+		v := noise - c
 		if v <= 0 {
 			continue
 		}
@@ -488,7 +490,8 @@ func (g *game) HandleStone(mons *monster) {
 	case QueenStone:
 		g.MakeNoise(QueenStoneNoise, mons.Pos)
 		dij := &normalPath{game: g}
-		nm := Dijkstra(dij, []position{mons.Pos}, 2)
+		const radius = 2
+		g.PR.BreadthFirstMap(dij, []gruid.Point{pos2Point(mons.Pos)}, radius)
 		for _, m := range g.Monsters {
 			if !m.Exists() {
 				continue
@@ -496,8 +499,8 @@ func (g *game) HandleStone(mons *monster) {
 			if m.State == Resting {
 				continue
 			}
-			_, ok := nm[m.Pos]
-			if !ok {
+			c := g.PR.BreadthFirstMapAt(pos2Point(m.Pos))
+			if c > radius {
 				continue
 			}
 			m.EnterConfusion(g, g.Ev)

@@ -3,12 +3,15 @@
 package main
 
 import (
+	"codeberg.org/anaseto/gruid"
+	"codeberg.org/anaseto/gruid/paths"
 	"sort"
 )
 
 type dungeon struct {
 	Gen   dungen
 	Cells []cell
+	PR    *paths.PathRange
 }
 
 type cell struct {
@@ -299,9 +302,9 @@ func (d *dungeon) ConnectRoomsShortestPath(r1, r2 room) {
 		r2pos.Y = r2.pos.Y + r2.h - 1
 	}
 	mp := &dungeonPath{dungeon: d}
-	path, _, _ := AstarPath(mp, r1pos, r2pos)
-	for _, pos := range path {
-		d.SetCell(pos, FreeCell)
+	path := d.PR.AstarPath(mp, pos2Point(r1pos), pos2Point(r2pos))
+	for _, p := range path {
+		d.SetCell(point2Pos(p), FreeCell)
 	}
 }
 
@@ -309,10 +312,10 @@ func (d *dungeon) ConnectIsolatedRoom(doorpos position) {
 	for i := 0; i < 200; i++ {
 		pos := d.FreeCell()
 		dp := &dungeonPath{dungeon: d, wcost: unreachable}
-		path, _, _ := AstarPath(dp, pos, doorpos)
+		path := d.PR.AstarPath(dp, pos2Point(pos), pos2Point(doorpos))
 		wall := false
-		for _, pos := range path {
-			if d.Cell(pos).T == WallCell {
+		for _, p := range path {
+			if d.Cell(point2Pos(p)).T == WallCell {
 				wall = true
 				break
 			}
@@ -320,8 +323,8 @@ func (d *dungeon) ConnectIsolatedRoom(doorpos position) {
 		if !wall {
 			continue
 		}
-		for _, pos := range path {
-			d.SetCell(pos, FreeCell)
+		for _, p := range path {
+			d.SetCell(point2Pos(p), FreeCell)
 		}
 		break
 	}
@@ -482,10 +485,10 @@ func (d *dungeon) BuildRoom(pos position, w, h int, outside bool) map[position]b
 		}
 	}
 	doorsc := [4]position{
-		position{pos.X + w/2, pos.Y},
-		position{pos.X + w/2, pos.Y + h - 1},
-		position{pos.X, pos.Y + h/2},
-		position{pos.X + w - 1, pos.Y + h/2},
+		{pos.X + w/2, pos.Y},
+		{pos.X + w/2, pos.Y + h - 1},
+		{pos.X, pos.Y + h/2},
+		{pos.X + w - 1, pos.Y + h/2},
 	}
 	doors := make(map[position]bool)
 	for i := 0; i < 3+RandInt(2); i++ {
@@ -556,6 +559,7 @@ func (d *dungeon) ResizeRoom(r room) room {
 
 func (g *game) GenRuinsMap(h, w int) {
 	d := &dungeon{}
+	d.PR = paths.NewPathRange(gruid.NewRange(0, 0, DungeonWidth, DungeonHeight))
 	d.Cells = make([]cell, h*w)
 	rooms := []room{}
 	for i := 0; i < 43; i++ {
@@ -647,6 +651,7 @@ func (rs roomSlice) Less(i, j int) bool {
 
 func (g *game) GenRoomMap(h, w int) {
 	d := &dungeon{}
+	d.PR = paths.NewPathRange(gruid.NewRange(0, 0, DungeonWidth, DungeonHeight))
 	d.Cells = make([]cell, h*w)
 	rooms := []room{}
 	cols := 0
@@ -743,6 +748,7 @@ func (d *dungeon) WallCell() position {
 
 func (g *game) GenCaveMap(h, w int) {
 	d := &dungeon{}
+	d.PR = paths.NewPathRange(gruid.NewRange(0, 0, DungeonWidth, DungeonHeight))
 	d.Cells = make([]cell, h*w)
 	pos := position{40, 10}
 	max := 21 * 42
@@ -895,6 +901,7 @@ func (d *dungeon) DigBlock(block []position, diag bool) []position {
 
 func (g *game) GenCaveMapTree(h, w int) {
 	d := &dungeon{}
+	d.PR = paths.NewPathRange(gruid.NewRange(0, 0, DungeonWidth, DungeonHeight))
 	d.Cells = make([]cell, h*w)
 	center := position{40, 10}
 	d.SetCell(center, FreeCell)
@@ -1000,6 +1007,7 @@ func (d *dungeon) connex() bool {
 
 func (g *game) RunCellularAutomataCave(h, w int) bool {
 	d := &dungeon{}
+	d.PR = paths.NewPathRange(gruid.NewRange(0, 0, DungeonWidth, DungeonHeight))
 	d.Cells = make([]cell, h*w)
 	for i := range d.Cells {
 		r := RandInt(100)
@@ -1147,10 +1155,10 @@ func (d *dungeon) SimpleRoom(r room) map[position]bool {
 		d.SetCell(position{r.pos.X + r.w - 1, i}, WallCell)
 	}
 	doorsc := [4]position{
-		position{r.pos.X + r.w/2, r.pos.Y},
-		position{r.pos.X + r.w/2, r.pos.Y + r.h - 1},
-		position{r.pos.X, r.pos.Y + r.h/2},
-		position{r.pos.X + r.w - 1, r.pos.Y + r.h/2},
+		{r.pos.X + r.w/2, r.pos.Y},
+		{r.pos.X + r.w/2, r.pos.Y + r.h - 1},
+		{r.pos.X, r.pos.Y + r.h/2},
+		{r.pos.X + r.w - 1, r.pos.Y + r.h/2},
 	}
 	doors := make(map[position]bool)
 	for i := 0; i < 3+RandInt(2); i++ {
@@ -1226,10 +1234,10 @@ func (g *game) ExtendEdgeRoom(r room, doors map[position]bool) room {
 		}
 	}
 	doorsc := [4]position{
-		position{r.pos.X + r.w/2, r.pos.Y},
-		position{r.pos.X + r.w/2, r.pos.Y + r.h - 1},
-		position{r.pos.X, r.pos.Y + r.h/2},
-		position{r.pos.X + r.w - 1, r.pos.Y + r.h/2},
+		{r.pos.X + r.w/2, r.pos.Y},
+		{r.pos.X + r.w/2, r.pos.Y + r.h - 1},
+		{r.pos.X, r.pos.Y + r.h/2},
+		{r.pos.X + r.w - 1, r.pos.Y + r.h/2},
 	}
 	ndoorsc := []position{}
 	ndoors := 0
@@ -1408,6 +1416,7 @@ func (g *game) GenBSPMap(height, width int) {
 	}
 
 	d := &dungeon{}
+	d.PR = paths.NewPathRange(gruid.NewRange(0, 0, DungeonWidth, DungeonHeight))
 	d.Cells = make([]cell, height*width)
 	for i := 0; i < DungeonNCells; i++ {
 		d.SetCell(idxtopos(i), FreeCell)

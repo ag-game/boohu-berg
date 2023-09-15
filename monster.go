@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"codeberg.org/anaseto/gruid"
+	"fmt"
+)
 
 type monsterState int
 
@@ -1293,7 +1296,7 @@ func init() {
 		},
 	}
 	for _, sb := range MonsSpecialBands {
-		for i, _ := range sb.bands {
+		for i := range sb.bands {
 			sb.bands[i].MaxDepth = MaxDepth
 		}
 	}
@@ -1651,7 +1654,7 @@ func init() {
 		}},
 	}
 	for _, sb := range MonsSpecialEndBands {
-		for i, _ := range sb.bands {
+		for i := range sb.bands {
 			sb.bands[i].MaxDepth = MaxDepth
 		}
 	}
@@ -2809,14 +2812,15 @@ func (m *monster) GatherBand(g *game) {
 		return
 	}
 	dij := &normalPath{game: g}
-	nm := Dijkstra(dij, []position{m.Pos}, 4)
+	const radius = 4
+	g.PR.BreadthFirstMap(dij, []gruid.Point{pos2Point(m.Pos)}, radius)
 	for _, mons := range g.Monsters {
 		if mons.Band == m.Band {
 			if mons.State == Hunting && m.State != Hunting {
 				continue
 			}
-			n, ok := nm[mons.Pos]
-			if !ok || n.Cost > 4 || mons.State == Resting && mons.Status(MonsExhausted) && RandInt(2) == 0 {
+			c := g.PR.BreadthFirstMapAt(pos2Point(mons.Pos))
+			if c > radius || mons.State == Resting && mons.Status(MonsExhausted) && RandInt(2) == 0 {
 				continue
 			}
 			r := RandInt(100)

@@ -1,6 +1,9 @@
 package main
 
-import "errors"
+import (
+	"codeberg.org/anaseto/gruid"
+	"errors"
+)
 
 var DijkstraMapCache [DungeonNCells]int
 
@@ -33,7 +36,7 @@ func (g *game) AllExplored() bool {
 	for i, c := range g.Dungeon.Cells {
 		pos := idxtopos(i)
 		if c.T == WallCell {
-			if len(np.Neighbors(pos)) == 0 {
+			if len(np.Neighbors(pos2Point(pos))) == 0 {
 				continue
 			}
 		}
@@ -47,13 +50,13 @@ func (g *game) AllExplored() bool {
 	return true
 }
 
-func (g *game) AutoexploreSources() []int {
-	sources := []int{}
+func (g *game) AutoexploreSources() []gruid.Point {
+	sources := []gruid.Point{}
 	np := &normalPath{game: g}
 	for i, c := range g.Dungeon.Cells {
 		pos := idxtopos(i)
 		if c.T == WallCell {
-			if len(np.Neighbors(pos)) == 0 {
+			if len(np.Neighbors(pos2Point(pos))) == 0 {
 				continue
 			}
 		}
@@ -62,42 +65,43 @@ func (g *game) AutoexploreSources() []int {
 		}
 		_, okc := g.Collectables[pos]
 		if !c.Explored || g.Simellas[pos] > 0 || okc {
-			sources = append(sources, i)
+			sources = append(sources, idxtopoint(i))
 		} else if _, ok := g.Rods[pos]; ok {
-			sources = append(sources, i)
+			sources = append(sources, idxtopoint(i))
 		}
 
 	}
 	return sources
 }
 
-func (g *game) BuildAutoexploreMap(sources []int) {
+func (g *game) BuildAutoexploreMap(sources []gruid.Point) {
 	ap := &autoexplorePath{game: g}
-	g.AutoExploreDijkstra(ap, sources)
+	g.PRauto.BreadthFirstMap(ap, sources, unreachable)
 	g.DijkstraMapRebuild = false
 }
 
 func (g *game) NextAuto() (next *position, finished bool) {
 	ap := &autoexplorePath{game: g}
-	if DijkstraMapCache[g.Player.Pos.idx()] == unreachable {
+	if g.PRauto.BreadthFirstMapAt(pos2Point(g.Player.Pos)) > unreachable {
 		return nil, false
 	}
-	neighbors := ap.Neighbors(g.Player.Pos)
+	neighbors := ap.Neighbors(pos2Point(g.Player.Pos))
 	if len(neighbors) == 0 {
 		return nil, false
 	}
 	n := neighbors[0]
-	ncost := DijkstraMapCache[n.idx()]
-	for _, pos := range neighbors[1:] {
-		cost := DijkstraMapCache[pos.idx()]
+	ncost := g.PRauto.BreadthFirstMapAt(n)
+	for _, p := range neighbors[1:] {
+		cost := g.PRauto.BreadthFirstMapAt(p)
 		if cost < ncost {
-			n = pos
+			n = p
 			ncost = cost
 		}
 	}
-	if ncost >= DijkstraMapCache[g.Player.Pos.idx()] {
+	if ncost >= g.PRauto.BreadthFirstMapAt(pos2Point(g.Player.Pos)) {
 		finished = true
 	}
-	next = &n
+	np := point2Pos(n)
+	next = &np
 	return next, finished
 }
