@@ -112,13 +112,13 @@ var SaveError string
 
 type gameui struct {
 	g         *game
-	cursor    position
+	cursor    gruid.Point
 	display   js.Value
 	cache     map[UICell]js.Value
 	ctx       js.Value
 	width     int
 	height    int
-	mousepos  position
+	mousepos  gruid.Point
 	menuHover menu
 	itemHover int
 }

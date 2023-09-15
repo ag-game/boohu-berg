@@ -1,10 +1,11 @@
 package main
 
 import (
-	"codeberg.org/anaseto/gruid"
-	"codeberg.org/anaseto/gruid/paths"
 	"container/heap"
 	"fmt"
+
+	"codeberg.org/anaseto/gruid"
+	"codeberg.org/anaseto/gruid/paths"
 )
 
 var Version string = "v0.14-dev"
@@ -23,38 +24,38 @@ type game struct {
 	ExploredLevels      int
 	DepthPlayerTurn     int
 	Turn                int
-	Highlight           map[position]bool // highlighted positions (e.g. targeted ray)
-	Collectables        map[position]collectable
+	Highlight           map[gruid.Point]bool // highlighted positions (e.g. targeted ray)
+	Collectables        map[gruid.Point]collectable
 	CollectableScore    int
 	LastConsumables     []consumable
-	Equipables          map[position]equipable
-	Rods                map[position]rod
-	Stairs              map[position]stair
-	Clouds              map[position]cloud
-	Fungus              map[position]vegetation
-	Doors               map[position]bool
-	TemporalWalls       map[position]bool
-	MagicalStones       map[position]stone
+	Equipables          map[gruid.Point]equipable
+	Rods                map[gruid.Point]rod
+	Stairs              map[gruid.Point]stair
+	Clouds              map[gruid.Point]cloud
+	Fungus              map[gruid.Point]vegetation
+	Doors               map[gruid.Point]bool
+	TemporalWalls       map[gruid.Point]bool
+	MagicalStones       map[gruid.Point]stone
 	GeneratedUniques    map[monsterBand]int
 	GeneratedEquipables map[equipable]bool
 	GeneratedRods       map[rod]bool
 	GenPlan             [MaxDepth + 1]genFlavour
 	FoundEquipables     map[equipable]bool
-	Simellas            map[position]int
-	WrongWall           map[position]bool
-	WrongFoliage        map[position]bool
-	WrongDoor           map[position]bool
-	ExclusionsMap       map[position]bool
-	Noise               map[position]bool
-	DreamingMonster     map[position]bool
+	Simellas            map[gruid.Point]int
+	WrongWall           map[gruid.Point]bool
+	WrongFoliage        map[gruid.Point]bool
+	WrongDoor           map[gruid.Point]bool
+	ExclusionsMap       map[gruid.Point]bool
+	Noise               map[gruid.Point]bool
+	DreamingMonster     map[gruid.Point]bool
 	Resting             bool
 	RestingTurns        int
 	Autoexploring       bool
 	DijkstraMapRebuild  bool
-	Targeting           position
+	Targeting           gruid.Point
 	PR                  *paths.PathRange
 	PRauto              *paths.PathRange
-	AutoTarget          position
+	AutoTarget          gruid.Point
 	AutoDir             direction
 	AutoHalt            bool
 	AutoNext            bool
@@ -82,7 +83,7 @@ type startOpts struct {
 	UnstableLevel int
 }
 
-func (g *game) FreeCell() position {
+func (g *game) FreeCell() gruid.Point {
 	d := g.Dungeon
 	count := 0
 	for {
@@ -92,50 +93,50 @@ func (g *game) FreeCell() position {
 		}
 		x := RandInt(DungeonWidth)
 		y := RandInt(DungeonHeight)
-		pos := position{x, y}
-		c := d.Cell(pos)
+		p := gruid.Point{x, y}
+		c := d.Cell(p)
 		if c.T != FreeCell {
 			continue
 		}
-		if g.Player != nil && g.Player.Pos == pos {
+		if g.Player != nil && g.Player.P == p {
 			continue
 		}
-		mons := g.MonsterAt(pos)
+		mons := g.MonsterAt(p)
 		if mons.Exists() {
 			continue
 		}
-		return pos
+		return p
 	}
 }
 
-func (g *game) FreeCellForPlayer() position {
-	center := position{DungeonWidth / 2, DungeonHeight / 2}
+func (g *game) FreeCellForPlayer() gruid.Point {
+	center := gruid.Point{DungeonWidth / 2, DungeonHeight / 2}
 	bestpos := g.FreeCell()
 	for i := 0; i < 2; i++ {
-		pos := g.FreeCell()
-		if pos.Distance(center) > bestpos.Distance(center) {
-			bestpos = pos
+		p := g.FreeCell()
+		if Distance(p, center) > Distance(bestpos, center) {
+			bestpos = p
 		}
 	}
 	return bestpos
 }
 
-func (g *game) FreeCellForStair(dist int) position {
+func (g *game) FreeCellForStair(dist int) gruid.Point {
 	iters := 0
-	bestpos := g.Player.Pos
+	bestpos := g.Player.P
 	for {
-		pos := g.FreeCellForStatic()
+		p := g.FreeCellForStatic()
 		adjust := 0
 		for i := 0; i < 4; i++ {
 			adjust += RandInt(dist)
 		}
 		adjust /= 4
-		if pos.Distance(g.Player.Pos) <= 6+adjust {
+		if Distance(p, g.Player.P) <= 6+adjust {
 			continue
 		}
 		iters++
-		if pos.Distance(g.Player.Pos) > bestpos.Distance(g.Player.Pos) {
-			bestpos = pos
+		if Distance(p, g.Player.P) > Distance(bestpos, g.Player.P) {
+			bestpos = p
 		}
 		if iters == 2 {
 			return bestpos
@@ -143,7 +144,7 @@ func (g *game) FreeCellForStair(dist int) position {
 	}
 }
 
-func (g *game) FreeCellForStatic() position {
+func (g *game) FreeCellForStatic() gruid.Point {
 	d := g.Dungeon
 	count := 0
 	for {
@@ -153,44 +154,44 @@ func (g *game) FreeCellForStatic() position {
 		}
 		x := RandInt(DungeonWidth)
 		y := RandInt(DungeonHeight)
-		pos := position{x, y}
-		c := d.Cell(pos)
+		p := gruid.Point{x, y}
+		c := d.Cell(p)
 		if c.T != FreeCell {
 			continue
 		}
-		if g.Player != nil && g.Player.Pos == pos {
+		if g.Player != nil && g.Player.P == p {
 			continue
 		}
-		mons := g.MonsterAt(pos)
+		mons := g.MonsterAt(p)
 		if mons.Exists() {
 			continue
 		}
-		if g.Doors[pos] {
+		if g.Doors[p] {
 			continue
 		}
-		if g.Simellas[pos] > 0 {
+		if g.Simellas[p] > 0 {
 			continue
 		}
-		if _, ok := g.Collectables[pos]; ok {
+		if _, ok := g.Collectables[p]; ok {
 			continue
 		}
-		if _, ok := g.Stairs[pos]; ok {
+		if _, ok := g.Stairs[p]; ok {
 			continue
 		}
-		if _, ok := g.Rods[pos]; ok {
+		if _, ok := g.Rods[p]; ok {
 			continue
 		}
-		if _, ok := g.Equipables[pos]; ok {
+		if _, ok := g.Equipables[p]; ok {
 			continue
 		}
-		if _, ok := g.MagicalStones[pos]; ok {
+		if _, ok := g.MagicalStones[p]; ok {
 			continue
 		}
-		return pos
+		return p
 	}
 }
 
-func (g *game) FreeCellForMonster() position {
+func (g *game) FreeCellForMonster() gruid.Point {
 	d := g.Dungeon
 	count := 0
 	for {
@@ -200,44 +201,44 @@ func (g *game) FreeCellForMonster() position {
 		}
 		x := RandInt(DungeonWidth)
 		y := RandInt(DungeonHeight)
-		pos := position{x, y}
-		c := d.Cell(pos)
+		p := gruid.Point{x, y}
+		c := d.Cell(p)
 		if c.T != FreeCell {
 			continue
 		}
-		if g.Player != nil && g.Player.Pos.Distance(pos) < 8 {
+		if g.Player != nil && Distance(g.Player.P, p) < 8 {
 			continue
 		}
-		mons := g.MonsterAt(pos)
+		mons := g.MonsterAt(p)
 		if mons.Exists() {
 			continue
 		}
-		return pos
+		return p
 	}
 }
 
-func (g *game) FreeCellForBandMonster(pos position) position {
+func (g *game) FreeCellForBandMonster(p gruid.Point) gruid.Point {
 	count := 0
 	for {
 		count++
 		if count > 1000 {
 			return g.FreeCellForMonster()
 		}
-		neighbors := g.Dungeon.FreeNeighbors(pos)
+		neighbors := g.Dungeon.FreeNeighbors(p)
 		r := RandInt(len(neighbors))
-		pos = neighbors[r]
-		if g.Player != nil && g.Player.Pos.Distance(pos) < 8 {
+		p = neighbors[r]
+		if g.Player != nil && Distance(g.Player.P, p) < 8 {
 			continue
 		}
-		mons := g.MonsterAt(pos)
+		mons := g.MonsterAt(p)
 		if mons.Exists() {
 			continue
 		}
-		return pos
+		return p
 	}
 }
 
-func (g *game) FreeForStairs() position {
+func (g *game) FreeForStairs() gruid.Point {
 	d := g.Dungeon
 	count := 0
 	for {
@@ -247,16 +248,16 @@ func (g *game) FreeForStairs() position {
 		}
 		x := RandInt(DungeonWidth)
 		y := RandInt(DungeonHeight)
-		pos := position{x, y}
-		c := d.Cell(pos)
+		p := gruid.Point{x, y}
+		c := d.Cell(p)
 		if c.T != FreeCell {
 			continue
 		}
-		_, ok := g.Collectables[pos]
+		_, ok := g.Collectables[p]
 		if ok {
 			continue
 		}
-		return pos
+		return p
 	}
 }
 
@@ -270,7 +271,7 @@ const (
 )
 
 func (g *game) GenDungeon() {
-	g.Fungus = make(map[position]vegetation)
+	g.Fungus = make(map[gruid.Point]vegetation)
 	for {
 		dg := GenRuinsMap
 		switch RandInt(7) {
@@ -493,14 +494,14 @@ func (g *game) InitLevel() {
 	g.GenDungeon()
 
 	g.MonstersPosCache = make([]int, DungeonNCells)
-	g.Player.Pos = g.FreeCellForPlayer()
+	g.Player.P = g.FreeCellForPlayer()
 
-	g.WrongWall = map[position]bool{}
-	g.WrongFoliage = map[position]bool{}
-	g.WrongDoor = map[position]bool{}
-	g.ExclusionsMap = map[position]bool{}
-	g.TemporalWalls = map[position]bool{}
-	g.DreamingMonster = map[position]bool{}
+	g.WrongWall = map[gruid.Point]bool{}
+	g.WrongFoliage = map[gruid.Point]bool{}
+	g.WrongDoor = map[gruid.Point]bool{}
+	g.ExclusionsMap = map[gruid.Point]bool{}
+	g.TemporalWalls = map[gruid.Point]bool{}
+	g.DreamingMonster = map[gruid.Point]bool{}
 
 	// Monsters
 	g.BandData = MonsBands
@@ -510,12 +511,12 @@ func (g *game) InitLevel() {
 	g.GenMonsters()
 
 	// Collectables
-	g.Collectables = make(map[position]collectable)
+	g.Collectables = make(map[gruid.Point]collectable)
 	g.GenCollectables()
 
 	// Equipment
-	g.Equipables = make(map[position]equipable)
-	g.Rods = map[position]rod{}
+	g.Equipables = make(map[gruid.Point]equipable)
+	g.Rods = map[gruid.Point]rod{}
 	switch g.GenPlan[g.Depth] {
 	case GenWeapon:
 		g.GenWeapon()
@@ -547,7 +548,7 @@ func (g *game) InitLevel() {
 	}
 
 	// Stairs
-	g.Stairs = make(map[position]stair)
+	g.Stairs = make(map[gruid.Point]stair)
 	nstairs := 2
 	if RandInt(3) == 0 {
 		if RandInt(2) == 0 {
@@ -562,23 +563,23 @@ func (g *game) InitLevel() {
 		nstairs = 2
 	}
 	for i := 0; i < nstairs; i++ {
-		var pos position
+		var p gruid.Point
 		if g.Depth >= WinDepth && g.Depth != MaxDepth-1 {
-			pos = g.FreeCellForStair(60)
-			g.Stairs[pos] = WinStair
+			p = g.FreeCellForStair(60)
+			g.Stairs[p] = WinStair
 		}
 		if g.Depth < MaxDepth {
 			if g.Depth > 5 {
-				pos = g.FreeCellForStair(50)
+				p = g.FreeCellForStair(50)
 			} else {
-				pos = g.FreeCellForStair(0)
+				p = g.FreeCellForStair(0)
 			}
-			g.Stairs[pos] = NormalStair
+			g.Stairs[p] = NormalStair
 		}
 	}
 
 	// Magical Stones
-	g.MagicalStones = map[position]stone{}
+	g.MagicalStones = map[gruid.Point]stone{}
 	nstones := 1
 	switch RandInt(8) {
 	case 0:
@@ -597,27 +598,27 @@ func (g *game) InitLevel() {
 		}
 	}
 	for i := 0; i < nstones; i++ {
-		pos := g.FreeCellForStatic()
+		p := g.FreeCellForStatic()
 		var st stone
 		if ustone != stone(0) {
 			st = ustone
 		} else {
 			st = stone(1 + RandInt(NumStones-1))
 		}
-		g.MagicalStones[pos] = st
+		g.MagicalStones[p] = st
 	}
 
 	// Simellas
-	g.Simellas = make(map[position]int)
+	g.Simellas = make(map[gruid.Point]int)
 	for i := 0; i < 5; i++ {
-		pos := g.FreeCellForStatic()
+		p := g.FreeCellForStatic()
 		const rounds = 5
 		for j := 0; j < rounds; j++ {
-			g.Simellas[pos] += 1 + RandInt(g.Depth+g.Depth*g.Depth/6)
+			g.Simellas[p] += 1 + RandInt(g.Depth+g.Depth*g.Depth/6)
 		}
-		g.Simellas[pos] /= rounds
-		if g.Simellas[pos] == 0 {
-			g.Simellas[pos] = 1
+		g.Simellas[p] /= rounds
+		if g.Simellas[p] == 0 {
+			g.Simellas[p] = 1
 		}
 	}
 
@@ -645,7 +646,7 @@ func (g *game) InitLevel() {
 	}
 
 	// clouds
-	g.Clouds = map[position]cloud{}
+	g.Clouds = map[gruid.Point]cloud{}
 
 	// Events
 	if g.Depth == 1 {
@@ -683,8 +684,8 @@ func (g *game) CleanEvents() {
 	g.Events = evq
 }
 
-func (g *game) StairsSlice() []position {
-	stairs := []position{}
+func (g *game) StairsSlice() []gruid.Point {
+	stairs := []gruid.Point{}
 	for stairPos := range g.Stairs {
 		if g.Dungeon.Cell(stairPos).Explored {
 			stairs = append(stairs, stairPos)
@@ -714,8 +715,8 @@ func (g *game) GenCollectable() {
 			}
 			g.LastConsumables = append(g.LastConsumables, c)
 			g.CollectableScore++
-			pos := g.FreeCellForStatic()
-			g.Collectables[pos] = collectable{Consumable: c, Quantity: data.quantity}
+			p := g.FreeCellForStatic()
+			g.Collectables[p] = collectable{Consumable: c, Quantity: data.quantity}
 			return
 		}
 	}
@@ -750,8 +751,8 @@ func (g *game) GenShield() {
 			// do not generate duplicates
 			continue
 		}
-		pos := g.FreeCellForStatic()
-		g.Equipables[pos] = ars[i]
+		p := g.FreeCellForStatic()
+		g.Equipables[p] = ars[i]
 		g.GeneratedEquipables[ars[i]] = true
 		break
 	}
@@ -765,8 +766,8 @@ func (g *game) GenArmour() {
 			// do not generate duplicates
 			continue
 		}
-		pos := g.FreeCellForStatic()
-		g.Equipables[pos] = ars[i]
+		p := g.FreeCellForStatic()
+		g.Equipables[p] = ars[i]
 		g.GeneratedEquipables[ars[i]] = true
 		break
 	}
@@ -781,8 +782,8 @@ func (g *game) GenWeapon() {
 			// do not generate duplicates
 			continue
 		}
-		pos := g.FreeCellForStatic()
-		g.Equipables[pos] = wps[i]
+		p := g.FreeCellForStatic()
+		g.Equipables[p] = wps[i]
 		if !wps[i].TwoHanded() {
 			onehanded = true
 		}
@@ -805,7 +806,7 @@ func (g *game) FrundisInLevel() bool {
 
 func (g *game) Descend() bool {
 	g.LevelStats()
-	if strt, ok := g.Stairs[g.Player.Pos]; ok && strt == WinStair {
+	if strt, ok := g.Stairs[g.Player.P]; ok && strt == WinStair {
 		g.StoryPrint("Escaped!")
 		g.ExploredLevels = g.Depth
 		g.Depth = -1
@@ -886,7 +887,7 @@ func (g *game) AutoPlayer(ev event) bool {
 		case g.AutoHalt:
 			// stop exploring
 		default:
-			var n *position
+			var n *gruid.Point
 			var finished bool
 			if g.DijkstraMapRebuild {
 				if g.AllExplored() {
@@ -915,7 +916,7 @@ func (g *game) AutoPlayer(ev event) bool {
 			}
 		}
 		g.Autoexploring = false
-	} else if g.AutoTarget.valid() {
+	} else if valid(g.AutoTarget) {
 		if !g.ui.ExploreStep() && g.MoveToTarget(ev) {
 			return true
 		} else {

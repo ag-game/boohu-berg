@@ -1,8 +1,9 @@
 package main
 
 import (
-	"codeberg.org/anaseto/gruid"
 	"errors"
+
+	"codeberg.org/anaseto/gruid"
 )
 
 var DijkstraMapCache [DungeonNCells]int
@@ -11,7 +12,7 @@ func (g *game) Autoexplore(ev event) error {
 	if mons := g.MonsterInLOS(); mons.Exists() {
 		return errors.New("You cannot auto-explore while there are monsters in view.")
 	}
-	if g.ExclusionsMap[g.Player.Pos] {
+	if g.ExclusionsMap[g.Player.P] {
 		return errors.New("You cannot auto-explore while in an excluded area.")
 	}
 	if g.AllExplored() {
@@ -34,16 +35,16 @@ func (g *game) Autoexplore(ev event) error {
 func (g *game) AllExplored() bool {
 	np := &normalPath{game: g}
 	for i, c := range g.Dungeon.Cells {
-		pos := idxtopos(i)
+		p := idx2Point(i)
 		if c.T == WallCell {
-			if len(np.Neighbors(pos2Point(pos))) == 0 {
+			if len(np.Neighbors(p)) == 0 {
 				continue
 			}
 		}
-		_, okc := g.Collectables[pos]
-		if !c.Explored || g.Simellas[pos] > 0 || okc {
+		_, okc := g.Collectables[p]
+		if !c.Explored || g.Simellas[p] > 0 || okc {
 			return false
-		} else if _, ok := g.Rods[pos]; ok {
+		} else if _, ok := g.Rods[p]; ok {
 			return false
 		}
 	}
@@ -54,20 +55,20 @@ func (g *game) AutoexploreSources() []gruid.Point {
 	sources := []gruid.Point{}
 	np := &normalPath{game: g}
 	for i, c := range g.Dungeon.Cells {
-		pos := idxtopos(i)
+		p := idx2Point(i)
 		if c.T == WallCell {
-			if len(np.Neighbors(pos2Point(pos))) == 0 {
+			if len(np.Neighbors(p)) == 0 {
 				continue
 			}
 		}
-		if g.ExclusionsMap[pos] {
+		if g.ExclusionsMap[p] {
 			continue
 		}
-		_, okc := g.Collectables[pos]
-		if !c.Explored || g.Simellas[pos] > 0 || okc {
-			sources = append(sources, idxtopoint(i))
-		} else if _, ok := g.Rods[pos]; ok {
-			sources = append(sources, idxtopoint(i))
+		_, okc := g.Collectables[p]
+		if !c.Explored || g.Simellas[p] > 0 || okc {
+			sources = append(sources, idx2Point(i))
+		} else if _, ok := g.Rods[p]; ok {
+			sources = append(sources, idx2Point(i))
 		}
 
 	}
@@ -80,12 +81,12 @@ func (g *game) BuildAutoexploreMap(sources []gruid.Point) {
 	g.DijkstraMapRebuild = false
 }
 
-func (g *game) NextAuto() (next *position, finished bool) {
+func (g *game) NextAuto() (next *gruid.Point, finished bool) {
 	ap := &autoexplorePath{game: g}
-	if g.PRauto.BreadthFirstMapAt(pos2Point(g.Player.Pos)) > unreachable {
+	if g.PRauto.BreadthFirstMapAt(g.Player.P) > unreachable {
 		return nil, false
 	}
-	neighbors := ap.Neighbors(pos2Point(g.Player.Pos))
+	neighbors := ap.Neighbors(g.Player.P)
 	if len(neighbors) == 0 {
 		return nil, false
 	}
@@ -98,10 +99,9 @@ func (g *game) NextAuto() (next *position, finished bool) {
 			ncost = cost
 		}
 	}
-	if ncost >= g.PRauto.BreadthFirstMapAt(pos2Point(g.Player.Pos)) {
+	if ncost >= g.PRauto.BreadthFirstMapAt(g.Player.P) {
 		finished = true
 	}
-	np := point2Pos(n)
-	next = &np
+	next = &n
 	return next, finished
 }

@@ -25,23 +25,22 @@ func (lt *lighter) Cost(src, from, to gruid.Point) int {
 		return paths.DistanceChebyshev(to, from)
 	}
 	// from terrain specific costs
-	pfrom := point2Pos(from)
-	c := g.Dungeon.Cell(pfrom)
+	c := g.Dungeon.Cell(from)
 	if c.T == WallCell {
 		return wallcost
 	}
-	if _, ok := g.Clouds[pfrom]; ok {
+	if _, ok := g.Clouds[from]; ok {
 		return wallcost
 	}
-	if _, ok := g.Doors[pfrom]; ok {
+	if _, ok := g.Doors[from]; ok {
 		if from != src {
-			mons := g.MonsterAt(pfrom)
-			if !mons.Exists() && pfrom != g.Player.Pos {
+			mons := g.MonsterAt(from)
+			if !mons.Exists() && from != g.Player.P {
 				return wallcost
 			}
 		}
 	}
-	if _, ok := g.Fungus[pfrom]; ok {
+	if _, ok := g.Fungus[from]; ok {
 		return wallcost + paths.DistanceChebyshev(to, from) - 3
 	}
 	return paths.DistanceChebyshev(to, from)
@@ -93,18 +92,18 @@ func (g *game) StopAuto() {
 }
 
 func (g *game) blocksSSCLOS(p gruid.Point) bool {
-	return g.Dungeon.Cell(point2Pos(p)).T != WallCell
+	return g.Dungeon.Cell(p).T != WallCell
 }
 
 func (g *game) ComputeLOS() {
 	if g.Player.LOS == nil {
-		g.Player.LOS = map[position]bool{}
+		g.Player.LOS = map[gruid.Point]bool{}
 	}
 	for k := range g.Player.LOS {
 		delete(g.Player.LOS, k)
 	}
 	losRange := g.LosRange()
-	p := pos2Point(g.Player.Pos)
+	p := g.Player.P
 	if g.Player.FOV == nil {
 		g.Player.FOV = rl.NewFOV(visionRange(p, losRange))
 	} else {
@@ -123,13 +122,13 @@ func (g *game) ComputeLOS() {
 			continue
 		}
 		if n.Cost <= losRange {
-			pp := point2Pos(n.P)
-			g.Player.LOS[pp] = true
-			g.SeePosition(pp)
+			p := n.P
+			g.Player.LOS[p] = true
+			g.SeePosition(p)
 		}
 	}
 	for _, mons := range g.Monsters {
-		if mons.Exists() && g.Player.LOS[mons.Pos] {
+		if mons.Exists() && g.Player.LOS[mons.P] {
 			if mons.Seen {
 				g.StopAuto()
 				continue
@@ -144,99 +143,93 @@ func (g *game) ComputeLOS() {
 	}
 }
 
-func (g *game) SeePosition(pos position) {
-	if !g.Dungeon.Cell(pos).Explored {
+func (g *game) SeePosition(p gruid.Point) {
+	if !g.Dungeon.Cell(p).Explored {
 		see := "see"
-		if c, ok := g.Collectables[pos]; ok {
+		if c, ok := g.Collectables[p]; ok {
 			if c.Quantity > 1 {
 				g.Printf("You %s %d %s.", see, c.Quantity, c.Consumable.Plural())
 			} else {
 				g.Printf("You %s %s.", see, Indefinite(c.Consumable.String(), false))
 			}
 			g.StopAuto()
-		} else if _, ok := g.Stairs[pos]; ok {
+		} else if _, ok := g.Stairs[p]; ok {
 			g.Printf("You %s stairs.", see)
 			g.StopAuto()
-		} else if eq, ok := g.Equipables[pos]; ok {
+		} else if eq, ok := g.Equipables[p]; ok {
 			g.Printf("You %s %s.", see, Indefinite(eq.String(), false))
 			g.StopAuto()
-		} else if rd, ok := g.Rods[pos]; ok {
+		} else if rd, ok := g.Rods[p]; ok {
 			g.Printf("You %s %s.", see, Indefinite(rd.String(), false))
 			g.StopAuto()
-		} else if stn, ok := g.MagicalStones[pos]; ok {
+		} else if stn, ok := g.MagicalStones[p]; ok {
 			g.Printf("You %s %s.", see, Indefinite(stn.String(), false))
 			g.StopAuto()
 		}
 		g.FunAction()
-		g.Dungeon.SetExplored(pos)
+		g.Dungeon.SetExplored(p)
 		g.DijkstraMapRebuild = true
 	} else {
-		if g.WrongWall[pos] {
+		if g.WrongWall[p] {
 			g.Printf("There is no longer a wall there.")
 			g.StopAuto()
 			g.DijkstraMapRebuild = true
 		}
-		if cld, ok := g.Clouds[pos]; ok && cld == CloudFire && (g.WrongDoor[pos] || g.WrongFoliage[pos]) {
+		if cld, ok := g.Clouds[p]; ok && cld == CloudFire && (g.WrongDoor[p] || g.WrongFoliage[p]) {
 			g.Printf("There are flames there.")
 			g.StopAuto()
 			g.DijkstraMapRebuild = true
 		}
 	}
-	if g.WrongWall[pos] {
-		delete(g.WrongWall, pos)
-		if g.Dungeon.Cell(pos).T == FreeCell {
-			delete(g.TemporalWalls, pos)
+	if g.WrongWall[p] {
+		delete(g.WrongWall, p)
+		if g.Dungeon.Cell(p).T == FreeCell {
+			delete(g.TemporalWalls, p)
 		}
 	}
-	if _, ok := g.WrongDoor[pos]; ok {
-		delete(g.WrongDoor, pos)
-	}
-	if _, ok := g.WrongFoliage[pos]; ok {
-		delete(g.WrongFoliage, pos)
-	}
-	if _, ok := g.DreamingMonster[pos]; ok {
-		delete(g.DreamingMonster, pos)
-	}
+	delete(g.WrongDoor, p)
+	delete(g.WrongFoliage, p)
+	delete(g.DreamingMonster, p)
 }
 
-func (g *game) ComputeExclusion(pos position, toggle bool) {
+func (g *game) ComputeExclusion(p gruid.Point, toggle bool) {
 	exclusionRange := g.LosRange()
-	g.ExclusionsMap[pos] = toggle
+	g.ExclusionsMap[p] = toggle
 	for d := 1; d <= exclusionRange; d++ {
-		for x := -d + pos.X; x <= d+pos.X; x++ {
-			for _, pos := range []position{{x, pos.Y + d}, {x, pos.Y - d}} {
-				if !pos.valid() {
+		for x := -d + p.X; x <= d+p.X; x++ {
+			for _, q := range []gruid.Point{{x, p.Y + d}, {x, p.Y - d}} {
+				if !valid(q) {
 					continue
 				}
-				g.ExclusionsMap[pos] = toggle
+				g.ExclusionsMap[q] = toggle
 			}
 		}
-		for y := -d + 1 + pos.Y; y <= d-1+pos.Y; y++ {
-			for _, pos := range []position{{pos.X + d, y}, {pos.X - d, y}} {
-				if !pos.valid() {
+		for y := -d + 1 + p.Y; y <= d-1+p.Y; y++ {
+			for _, q := range []gruid.Point{{p.X + d, y}, {p.X - d, y}} {
+				if !valid(q) {
 					continue
 				}
-				g.ExclusionsMap[pos] = toggle
+				g.ExclusionsMap[q] = toggle
 			}
 		}
 	}
 }
 
-func (g *game) Ray(pos position) []position {
+func (g *game) Ray(p gruid.Point) []gruid.Point {
 	lt := &lighter{maxCost: g.LosRange(), g: g}
-	lnodes := g.Player.FOV.Ray(lt, pos2Point(pos))
-	ps := []position{}
+	lnodes := g.Player.FOV.Ray(lt, p)
+	ps := []gruid.Point{}
 	for i := len(lnodes) - 1; i > 0; i-- {
-		ps = append(ps, point2Pos(lnodes[i].P))
+		ps = append(ps, lnodes[i].P)
 	}
 	return ps
 }
 
-func (g *game) ComputeRayHighlight(pos position) {
-	g.Highlight = map[position]bool{}
-	ray := g.Ray(pos)
-	for _, p := range ray {
-		g.Highlight[p] = true
+func (g *game) ComputeRayHighlight(p gruid.Point) {
+	g.Highlight = map[gruid.Point]bool{}
+	ray := g.Ray(p)
+	for _, q := range ray {
+		g.Highlight[q] = true
 	}
 }
 
@@ -249,37 +242,37 @@ func (g *game) ComputeNoise() {
 	if g.Player.Aptitudes[AptHear] {
 		rg++
 	}
-	nodes := g.PR.BreadthFirstMap(dij, []gruid.Point{pos2Point(g.Player.Pos)}, rg)
+	nodes := g.PR.BreadthFirstMap(dij, []gruid.Point{g.Player.P}, rg)
 	count := 0
-	noise := map[position]bool{}
+	noise := map[gruid.Point]bool{}
 	rmax := 3
 	if g.Player.Aptitudes[AptHear] {
 		rmax--
 	}
 	for _, n := range nodes {
-		pos := point2Pos(n.P)
-		if g.Player.LOS[pos] {
+		p := n.P
+		if g.Player.LOS[p] {
 			continue
 		}
-		mons := g.MonsterAt(pos)
+		mons := g.MonsterAt(p)
 		if mons.Exists() && mons.State != Resting && RandInt(rmax) == 0 {
 			switch mons.Kind {
 			case MonsMirrorSpecter, MonsSatowalgaPlant:
 				// no footsteps
 			case MonsTinyHarpy, MonsWingedMilfid, MonsGiantBee:
-				noise[pos] = true
+				noise[p] = true
 				g.Print("You hear the flapping of wings.")
 				count++
 			case MonsOgre, MonsCyclop, MonsBrizzia, MonsHydra, MonsEarthDragon, MonsTreeMushroom:
-				noise[pos] = true
+				noise[p] = true
 				g.Print("You hear heavy footsteps.")
 				count++
 			case MonsWorm, MonsAcidMound:
-				noise[pos] = true
+				noise[p] = true
 				g.Print("You hear a creep noise.")
 				count++
 			default:
-				noise[pos] = true
+				noise[p] = true
 				g.Print("You hear footsteps.")
 				count++
 			}

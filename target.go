@@ -1,11 +1,14 @@
 package main
 
-import "errors"
+import (
+	"codeberg.org/anaseto/gruid"
+	"errors"
+)
 
 type Targeter interface {
-	ComputeHighlight(*game, position)
-	Action(*game, position) error
-	Reachable(*game, position) bool
+	ComputeHighlight(*game, gruid.Point)
+	Action(*game, gruid.Point) error
+	Reachable(*game, gruid.Point) bool
 	Done() bool
 }
 
@@ -14,42 +17,42 @@ type examiner struct {
 	stairs bool
 }
 
-func (ex *examiner) ComputeHighlight(g *game, pos position) {
-	g.ComputePathHighlight(pos)
+func (ex *examiner) ComputeHighlight(g *game, p gruid.Point) {
+	g.ComputePathHighlight(p)
 }
 
-func (g *game) ComputePathHighlight(pos position) {
-	path := g.PlayerPath(g.Player.Pos, pos)
-	g.Highlight = map[position]bool{}
+func (g *game) ComputePathHighlight(p gruid.Point) {
+	path := g.PlayerPath(g.Player.P, p)
+	g.Highlight = map[gruid.Point]bool{}
 	for _, p := range path {
 		g.Highlight[p] = true
 	}
 }
 
-func (ex *examiner) Action(g *game, pos position) error {
-	if !g.Dungeon.Cell(pos).Explored {
+func (ex *examiner) Action(g *game, p gruid.Point) error {
+	if !g.Dungeon.Cell(p).Explored {
 		return errors.New("You do not know this place.")
 	}
-	if g.Dungeon.Cell(pos).T == WallCell && !g.Player.HasStatus(StatusDig) {
+	if g.Dungeon.Cell(p).T == WallCell && !g.Player.HasStatus(StatusDig) {
 		return errors.New("You cannot travel into a wall.")
 	}
-	path := g.PlayerPath(g.Player.Pos, pos)
+	path := g.PlayerPath(g.Player.P, p)
 	if len(path) == 0 {
 		if ex.stairs {
 			return errors.New("There is no safe path to the nearest stairs.")
 		}
 		return errors.New("There is no safe path to this place.")
 	}
-	if c := g.Dungeon.Cell(pos); c.Explored && c.T == FreeCell {
-		g.AutoTarget = pos
-		g.Targeting = pos
+	if c := g.Dungeon.Cell(p); c.Explored && c.T == FreeCell {
+		g.AutoTarget = p
+		g.Targeting = p
 		ex.done = true
 		return nil
 	}
 	return errors.New("Invalid destination.")
 }
 
-func (ex *examiner) Reachable(g *game, pos position) bool {
+func (ex *examiner) Reachable(g *game, p gruid.Point) bool {
 	return true
 }
 
@@ -67,71 +70,71 @@ type chooser struct {
 	wall         bool
 }
 
-func (ch *chooser) ComputeHighlight(g *game, pos position) {
-	g.ComputeRayHighlight(pos)
+func (ch *chooser) ComputeHighlight(g *game, p gruid.Point) {
+	g.ComputeRayHighlight(p)
 	if !ch.area {
 		return
 	}
-	neighbors := g.Dungeon.FreeNeighbors(pos)
-	for _, pos := range neighbors {
-		g.Highlight[pos] = true
+	neighbors := g.Dungeon.FreeNeighbors(p)
+	for _, p := range neighbors {
+		g.Highlight[p] = true
 	}
 }
 
-func (ch *chooser) Reachable(g *game, pos position) bool {
-	return g.Player.LOS[pos]
+func (ch *chooser) Reachable(g *game, p gruid.Point) bool {
+	return g.Player.LOS[p]
 }
 
-func (ch *chooser) Action(g *game, pos position) error {
-	if !ch.Reachable(g, pos) {
+func (ch *chooser) Action(g *game, p gruid.Point) error {
+	if !ch.Reachable(g, p) {
 		return errors.New("You cannot target that place.")
 	}
-	if ch.minDist && pos.Distance(g.Player.Pos) <= 1 {
+	if ch.minDist && Distance(p, g.Player.P) <= 1 {
 		return errors.New("Invalid target: too close.")
 	}
-	c := g.Dungeon.Cell(pos)
+	c := g.Dungeon.Cell(p)
 	if c.T == WallCell {
 		return errors.New("You cannot target a wall.")
 	}
-	if (ch.area || ch.needsFreeWay) && !ch.freeWay(g, pos) {
+	if (ch.area || ch.needsFreeWay) && !ch.freeWay(g, p) {
 		return errors.New("Invalid target: there are monsters in the way.")
 	}
-	mons := g.MonsterAt(pos)
+	mons := g.MonsterAt(p)
 	if ch.free {
 		if mons.Exists() {
 			return errors.New("Invalid target: there is a monster there.")
 		}
-		if g.Player.Pos == pos {
+		if g.Player.P == p {
 			return errors.New("Invalid target: you are here.")
 		}
-		g.Player.Target = pos
+		g.Player.Target = p
 		ch.done = true
 		return nil
 	}
-	if mons.Exists() || ch.flammable && ch.flammableInWay(g, pos) {
-		g.Player.Target = pos
+	if mons.Exists() || ch.flammable && ch.flammableInWay(g, p) {
+		g.Player.Target = p
 		ch.done = true
 		return nil
 	}
-	if ch.flammable && ch.flammableInWay(g, pos) {
-		g.Player.Target = pos
+	if ch.flammable && ch.flammableInWay(g, p) {
+		g.Player.Target = p
 		ch.done = true
 		return nil
 	}
 	if !ch.area {
 		return errors.New("You must target a monster.")
 	}
-	neighbors := pos.ValidNeighbors()
+	neighbors := ValidNeighbors(p)
 	for _, npos := range neighbors {
 		nc := g.Dungeon.Cell(npos)
 		if !ch.wall && nc.T == WallCell {
 			continue
 		}
 		mons := g.MonsterAt(npos)
-		_, okFungus := g.Fungus[pos]
-		_, okDoors := g.Doors[pos]
+		_, okFungus := g.Fungus[p]
+		_, okDoors := g.Doors[p]
 		if ch.flammable && (okFungus || okDoors) || mons.Exists() || nc.T == WallCell {
-			g.Player.Target = pos
+			g.Player.Target = p
 			ch.done = true
 			return nil
 		}
@@ -152,23 +155,23 @@ func (ch *chooser) Done() bool {
 	return ch.done
 }
 
-func (ch *chooser) freeWay(g *game, pos position) bool {
-	ray := g.Ray(pos)
-	tpos := pos
+func (ch *chooser) freeWay(g *game, p gruid.Point) bool {
+	ray := g.Ray(p)
+	tpos := p
 	for _, rpos := range ray {
 		mons := g.MonsterAt(rpos)
 		if !mons.Exists() {
 			continue
 		}
-		tpos = mons.Pos
+		tpos = mons.P
 	}
-	return tpos == pos
+	return tpos == p
 }
 
-func (ch *chooser) flammableInWay(g *game, pos position) bool {
-	ray := g.Ray(pos)
+func (ch *chooser) flammableInWay(g *game, p gruid.Point) bool {
+	ray := g.Ray(p)
 	for _, rpos := range ray {
-		if rpos == g.Player.Pos {
+		if rpos == g.Player.P {
 			continue
 		}
 		if _, ok := g.Fungus[rpos]; ok {
@@ -186,35 +189,35 @@ type wallChooser struct {
 	minDist bool
 }
 
-func (ch *wallChooser) ComputeHighlight(g *game, pos position) {
-	g.ComputeRayHighlight(pos)
+func (ch *wallChooser) ComputeHighlight(g *game, p gruid.Point) {
+	g.ComputeRayHighlight(p)
 }
 
-func (ch *wallChooser) Reachable(g *game, pos position) bool {
-	return g.Player.LOS[pos]
+func (ch *wallChooser) Reachable(g *game, p gruid.Point) bool {
+	return g.Player.LOS[p]
 }
 
-func (ch *wallChooser) Action(g *game, pos position) error {
-	if !ch.Reachable(g, pos) {
+func (ch *wallChooser) Action(g *game, p gruid.Point) error {
+	if !ch.Reachable(g, p) {
 		return errors.New("You cannot target that place.")
 	}
-	ray := g.Ray(pos)
+	ray := g.Ray(p)
 	if len(ray) == 0 {
 		return errors.New("You are not a wall.")
 	}
 	if g.Dungeon.Cell(ray[0]).T != WallCell {
 		return errors.New("You must target a wall.")
 	}
-	if ch.minDist && g.Player.Pos.Distance(pos) <= 1 {
+	if ch.minDist && Distance(g.Player.P, p) <= 1 {
 		return errors.New("You cannot target an adjacent wall.")
 	}
-	for _, pos := range ray[1:] {
-		mons := g.MonsterAt(pos)
+	for _, p := range ray[1:] {
+		mons := g.MonsterAt(p)
 		if mons.Exists() {
 			return errors.New("There are monsters in the way.")
 		}
 	}
-	g.Player.Target = pos
+	g.Player.Target = p
 	ch.done = true
 	return nil
 }

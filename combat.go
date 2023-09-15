@@ -47,22 +47,22 @@ func (m *monster) InflictDamage(g *game, damage, max int) {
 	if g.Player.HP <= 0 {
 		return
 	}
-	stn, ok := g.MagicalStones[g.Player.Pos]
+	stn, ok := g.MagicalStones[g.Player.P]
 	if !ok {
 		return
 	}
 	switch stn {
 	case TeleStone:
-		g.UseStone(g.Player.Pos)
+		g.UseStone(g.Player.P)
 		g.Teleportation(g.Ev)
 	case FogStone:
-		g.Fog(g.Player.Pos, 3, g.Ev)
-		g.UseStone(g.Player.Pos)
+		g.Fog(g.Player.P, 3, g.Ev)
+		g.UseStone(g.Player.P)
 	case QueenStone:
-		g.MakeNoise(QueenStoneNoise, g.Player.Pos)
+		g.MakeNoise(QueenStoneNoise, g.Player.P)
 		dij := &normalPath{game: g}
 		const radius = 2
-		g.PR.BreadthFirstMap(dij, []gruid.Point{pos2Point(g.Player.Pos)}, radius)
+		g.PR.BreadthFirstMap(dij, []gruid.Point{g.Player.P}, radius)
 		for _, m := range g.Monsters {
 			if !m.Exists() {
 				continue
@@ -70,31 +70,31 @@ func (m *monster) InflictDamage(g *game, damage, max int) {
 			if m.State == Resting {
 				continue
 			}
-			c := g.PR.BreadthFirstMapAt(pos2Point(m.Pos))
+			c := g.PR.BreadthFirstMapAt(m.P)
 			if c > radius {
 				continue
 			}
 			m.EnterConfusion(g, g.Ev)
 		}
 		//g.Confusion(g.Ev)
-		g.UseStone(g.Player.Pos)
+		g.UseStone(g.Player.P)
 	case TreeStone:
 		if !g.Player.HasStatus(StatusLignification) {
-			g.UseStone(g.Player.Pos)
+			g.UseStone(g.Player.P)
 			g.EnterLignification(g.Ev)
 			g.Print("You feel rooted to the ground.")
 		}
 	case ObstructionStone:
-		neighbors := g.Dungeon.FreeNeighbors(g.Player.Pos)
-		for _, pos := range neighbors {
-			mons := g.MonsterAt(pos)
+		neighbors := g.Dungeon.FreeNeighbors(g.Player.P)
+		for _, p := range neighbors {
+			mons := g.MonsterAt(p)
 			if mons.Exists() {
 				continue
 			}
-			g.CreateTemporalWallAt(pos, g.Ev)
+			g.CreateTemporalWallAt(p, g.Ev)
 		}
 		g.Printf("You see walls appear out of thin air around the stone.")
-		g.UseStone(g.Player.Pos)
+		g.UseStone(g.Player.P)
 		g.ComputeLOS()
 	}
 }
@@ -104,7 +104,7 @@ func (g *game) MakeMonstersAware() {
 		if m.HP <= 0 {
 			continue
 		}
-		if g.Player.LOS[m.Pos] {
+		if g.Player.LOS[m.P] {
 			m.MakeAware(g)
 			if m.State != Resting {
 				m.GatherBand(g)
@@ -113,9 +113,9 @@ func (g *game) MakeMonstersAware() {
 	}
 }
 
-func (g *game) MakeNoise(noise int, at position) {
+func (g *game) MakeNoise(noise int, at gruid.Point) {
 	dij := &normalPath{game: g}
-	g.PR.BreadthFirstMap(dij, []gruid.Point{pos2Point(at)}, noise)
+	g.PR.BreadthFirstMap(dij, []gruid.Point{at}, noise)
 	for _, m := range g.Monsters {
 		if !m.Exists() {
 			continue
@@ -123,7 +123,7 @@ func (g *game) MakeNoise(noise int, at position) {
 		if m.State == Hunting {
 			continue
 		}
-		c := g.PR.BreadthFirstMapAt(pos2Point(m.Pos))
+		c := g.PR.BreadthFirstMapAt(m.P)
 		if c > noise {
 			continue
 		}
@@ -142,7 +142,7 @@ func (g *game) MakeNoise(noise int, at position) {
 			v = 2 * v / 3
 		}
 		if v > r {
-			if g.Player.LOS[m.Pos] {
+			if g.Player.LOS[m.P] {
 				m.MakeHunt(g)
 			} else {
 				m.Target = at
@@ -154,12 +154,12 @@ func (g *game) MakeNoise(noise int, at position) {
 }
 
 func (g *game) InOpenMons(mons *monster) bool {
-	neighbors := g.Dungeon.FreeNeighbors(g.Player.Pos)
-	for _, pos := range neighbors {
-		if pos.Distance(mons.Pos) > 1 {
+	neighbors := g.Dungeon.FreeNeighbors(g.Player.P)
+	for _, p := range neighbors {
+		if Distance(p, mons.P) > 1 {
 			continue
 		}
-		if g.Dungeon.Cell(pos).T == WallCell {
+		if g.Dungeon.Cell(p).T == WallCell {
 			return false
 		}
 	}
@@ -179,46 +179,46 @@ func (g *game) AttackMonster(mons *monster, ev event) {
 			g.PrintfStyled("Frundis glows… %s appears confused.", logPlayerHit, mons.Kind.Definite(false))
 		}
 	case g.Player.Weapon.Cleave():
-		var neighbors []position
+		var neighbors []gruid.Point
 		if g.Player.HasStatus(StatusConfusion) {
-			neighbors = g.Dungeon.CardinalFreeNeighbors(g.Player.Pos)
+			neighbors = g.Dungeon.CardinalFreeNeighbors(g.Player.P)
 		} else {
-			neighbors = g.Dungeon.FreeNeighbors(g.Player.Pos)
+			neighbors = g.Dungeon.FreeNeighbors(g.Player.P)
 		}
-		for _, pos := range neighbors {
-			m := g.MonsterAt(pos)
+		for _, p := range neighbors {
+			m := g.MonsterAt(p)
 			if m.Exists() {
 				g.HitMonster(DmgPhysical, g.Player.Attack(), m, ev)
 			}
 		}
 	case g.Player.Weapon.Pierce():
 		g.HitMonster(DmgPhysical, g.Player.Attack(), mons, ev)
-		dir := mons.Pos.Dir(g.Player.Pos)
-		behind := g.Player.Pos.To(dir).To(dir)
-		if behind.valid() {
+		dir := Dir(mons.P, g.Player.P)
+		behind := To(To(g.Player.P, dir), dir)
+		if valid(behind) {
 			m := g.MonsterAt(behind)
 			if m.Exists() {
 				g.HitMonster(DmgPhysical, g.Player.Attack(), m, ev)
 			}
 		}
 	case g.Player.Weapon == ElecWhip:
-		g.HitConnected(mons.Pos, DmgMagical, ev)
+		g.HitConnected(mons.P, DmgMagical, ev)
 	case g.Player.Weapon == DancingRapier:
-		ompos := mons.Pos
+		ompos := mons.P
 		g.HitMonster(DmgPhysical, g.Player.Attack(), mons, ev)
 		if g.Player.HasStatus(StatusLignification) || mons.Status(MonsLignified) || mons.Kind == MonsTinyHarpy {
 			break
 		}
-		dir := ompos.Dir(g.Player.Pos)
-		behind := g.Player.Pos.To(dir).To(dir)
-		if behind.valid() {
+		dir := Dir(ompos, g.Player.P)
+		behind := To(To(g.Player.P, dir), dir)
+		if valid(behind) {
 			m := g.MonsterAt(behind)
 			if m.Exists() {
 				g.HitMonster(DmgPhysical, g.Player.Attack()+3, m, ev)
 			}
 		}
 		if mons.Exists() {
-			mons.MoveTo(g, g.Player.Pos)
+			mons.MoveTo(g, g.Player.P)
 		}
 		g.PlacePlayerAt(ompos)
 	case g.Player.Weapon == HarKarGauntlets:
@@ -249,13 +249,13 @@ func (g *game) AttackMonster(mons *monster, ev event) {
 	}
 }
 
-func (g *game) AttractMonster(pos position) *monster {
-	dir := pos.Dir(g.Player.Pos)
-	for cpos := pos.To(dir); g.Player.LOS[cpos]; cpos = cpos.To(dir) {
+func (g *game) AttractMonster(p gruid.Point) *monster {
+	dir := Dir(p, g.Player.P)
+	for cpos := To(p, dir); g.Player.LOS[cpos]; cpos = To(cpos, dir) {
 		mons := g.MonsterAt(cpos)
 		if mons.Exists() {
-			mons.MoveTo(g, pos)
-			g.ui.TeleportAnimation(cpos, pos, false)
+			mons.MoveTo(g, p)
+			g.ui.TeleportAnimation(cpos, p, false)
 			return mons
 		}
 	}
@@ -263,36 +263,36 @@ func (g *game) AttractMonster(pos position) *monster {
 }
 
 func (g *game) HarKarAttack(mons *monster, ev event) {
-	dir := mons.Pos.Dir(g.Player.Pos)
-	pos := g.Player.Pos
+	dir := Dir(mons.P, g.Player.P)
+	p := g.Player.P
 	for {
-		pos = pos.To(dir)
-		if !pos.valid() || g.Dungeon.Cell(pos).T != FreeCell {
+		p = To(p, dir)
+		if !valid(p) || g.Dungeon.Cell(p).T != FreeCell {
 			break
 		}
-		m := g.MonsterAt(pos)
+		m := g.MonsterAt(p)
 		if !m.Exists() {
 			break
 		}
 	}
-	if pos.valid() && g.Dungeon.Cell(pos).T == FreeCell && !g.Player.HasStatus(StatusLignification) {
-		pos = g.Player.Pos
+	if valid(p) && g.Dungeon.Cell(p).T == FreeCell && !g.Player.HasStatus(StatusLignification) {
+		p = g.Player.P
 		for {
-			pos = pos.To(dir)
-			if !pos.valid() || g.Dungeon.Cell(pos).T != FreeCell {
+			p = To(p, dir)
+			if !valid(p) || g.Dungeon.Cell(p).T != FreeCell {
 				break
 			}
-			m := g.MonsterAt(pos)
+			m := g.MonsterAt(p)
 			if !m.Exists() {
 				break
 			}
 			g.HitMonster(DmgPhysical, g.Player.Attack(), m, ev)
 		}
-		if !pos.valid() || g.Dungeon.Cell(pos).T != FreeCell {
+		if !valid(p) || g.Dungeon.Cell(p).T != FreeCell {
 			return
 		}
-		g.PlacePlayerAt(pos)
-		behind := pos.To(dir)
+		g.PlacePlayerAt(p)
+		behind := To(p, dir)
 		m := g.MonsterAt(behind)
 		if m.Exists() {
 			g.HitMonster(DmgPhysical, g.Player.Attack(), m, ev)
@@ -302,23 +302,24 @@ func (g *game) HarKarAttack(mons *monster, ev event) {
 	}
 }
 
-func (g *game) HitConnected(pos position, dt dmgType, ev event) {
+func (g *game) HitConnected(p gruid.Point, dt dmgType, ev event) {
 	d := g.Dungeon
-	conn := map[position]bool{}
-	stack := []position{pos}
-	conn[pos] = true
-	nb := make([]position, 0, 8)
+	conn := map[gruid.Point]bool{}
+	stack := []gruid.Point{p}
+	conn[p] = true
+	nb := make([]gruid.Point, 0, 8)
 	for len(stack) > 0 {
-		pos = stack[len(stack)-1]
+		p = stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
-		mons := g.MonsterAt(pos)
+		mons := g.MonsterAt(p)
 		if !mons.Exists() {
 			continue
 		}
 		g.HitMonster(dt, g.Player.Attack(), mons, ev)
-		nb = pos.Neighbors(nb, func(npos position) bool {
-			return npos.valid() && d.Cell(npos).T != WallCell
+		nb = Neighbors(p, nb, func(npos gruid.Point) bool {
+			return valid(npos) && d.Cell(npos).T != WallCell
 		})
+
 		for _, npos := range nb {
 			if !conn[npos] {
 				conn[npos] = true
@@ -412,7 +413,7 @@ func (g *game) HitMonster(dt dmgType, dmg int, mons *monster, ev event) (hit boo
 		if clang {
 			noise += marmor
 		}
-		g.MakeNoise(noise, mons.Pos)
+		g.MakeNoise(noise, mons.P)
 		if mons.State == Resting {
 			if g.Player.Weapon == Dagger || g.Player.Weapon == VampDagger {
 				attack *= 4
@@ -446,7 +447,7 @@ func (g *game) HitMonster(dt dmgType, dmg int, mons *monster, ev event) (hit boo
 				g.Player.HP += healing
 			}
 		}
-		g.ui.HitAnimation(mons.Pos, false)
+		g.ui.HitAnimation(mons.P, false)
 		if mons.HP > 0 {
 			g.PrintfStyled("You hit %s (%d dmg).%s", logPlayerHit, mons.Kind.Definite(false), attack, sclang)
 		} else if oldHP > 0 {
@@ -455,7 +456,7 @@ func (g *game) HitMonster(dt dmgType, dmg int, mons *monster, ev event) (hit boo
 			g.HandleKill(mons, ev)
 		}
 		if mons.Kind == MonsBrizzia && RandInt(4) == 0 && !g.Player.HasStatus(StatusNausea) &&
-			mons.Pos.Distance(g.Player.Pos) == 1 {
+			Distance(mons.P, g.Player.P) == 1 {
 			g.Player.Statuses[StatusNausea]++
 			g.PushEvent(&simpleEvent{ERank: ev.Rank() + 30 + RandInt(20), EAction: NauseaEnd})
 			g.Print("The brizzia's corpse releases some nauseating gas. You feel sick.")
@@ -474,24 +475,24 @@ func (g *game) HitMonster(dt dmgType, dmg int, mons *monster, ev event) (hit boo
 }
 
 func (g *game) HandleStone(mons *monster) {
-	stn, ok := g.MagicalStones[mons.Pos]
+	stn, ok := g.MagicalStones[mons.P]
 	if !ok {
 		return
 	}
 	switch stn {
 	case TeleStone:
 		if mons.Exists() {
-			g.UseStone(mons.Pos)
+			g.UseStone(mons.P)
 			mons.TeleportAway(g)
 		}
 	case FogStone:
-		g.Fog(mons.Pos, 3, g.Ev)
-		g.UseStone(mons.Pos)
+		g.Fog(mons.P, 3, g.Ev)
+		g.UseStone(mons.P)
 	case QueenStone:
-		g.MakeNoise(QueenStoneNoise, mons.Pos)
+		g.MakeNoise(QueenStoneNoise, mons.P)
 		dij := &normalPath{game: g}
 		const radius = 2
-		g.PR.BreadthFirstMap(dij, []gruid.Point{pos2Point(mons.Pos)}, radius)
+		g.PR.BreadthFirstMap(dij, []gruid.Point{mons.P}, radius)
 		for _, m := range g.Monsters {
 			if !m.Exists() {
 				continue
@@ -499,39 +500,39 @@ func (g *game) HandleStone(mons *monster) {
 			if m.State == Resting {
 				continue
 			}
-			c := g.PR.BreadthFirstMapAt(pos2Point(m.Pos))
+			c := g.PR.BreadthFirstMapAt(m.P)
 			if c > radius {
 				continue
 			}
 			m.EnterConfusion(g, g.Ev)
 		}
-		// _, ok := nm[g.Player.Pos]
+		// _, ok := nm[g.Player.P]
 		// if ok {
 		// 	g.Confusion(g.Ev)
 		// }
-		g.UseStone(mons.Pos)
+		g.UseStone(mons.P)
 	case TreeStone:
 		if mons.Exists() {
-			g.UseStone(mons.Pos)
+			g.UseStone(mons.P)
 			mons.EnterLignification(g, g.Ev)
 		}
 	case ObstructionStone:
 		if !mons.Exists() {
-			g.CreateTemporalWallAt(mons.Pos, g.Ev)
+			g.CreateTemporalWallAt(mons.P, g.Ev)
 		}
-		neighbors := g.Dungeon.FreeNeighbors(mons.Pos)
-		for _, pos := range neighbors {
-			if pos == g.Player.Pos {
+		neighbors := g.Dungeon.FreeNeighbors(mons.P)
+		for _, p := range neighbors {
+			if p == g.Player.P {
 				continue
 			}
-			m := g.MonsterAt(pos)
+			m := g.MonsterAt(p)
 			if m.Exists() {
 				continue
 			}
-			g.CreateTemporalWallAt(pos, g.Ev)
+			g.CreateTemporalWallAt(p, g.Ev)
 		}
 		g.Printf("You see walls appear out of thin air around the stone.")
-		g.UseStone(mons.Pos)
+		g.UseStone(mons.P)
 		g.ComputeLOS()
 	}
 }
@@ -542,7 +543,7 @@ func (g *game) HandleKill(mons *monster, ev event) {
 	if mons.Kind == MonsExplosiveNadre {
 		mons.Explode(g, ev)
 	}
-	if g.Doors[mons.Pos] {
+	if g.Doors[mons.P] {
 		g.ComputeLOS()
 	}
 	if mons.Kind.Dangerousness() > 10 {
@@ -580,53 +581,53 @@ func (g *game) BlockEffects(m *monster) {
 	g.PushEvent(&simpleEvent{ERank: g.Ev.Rank() + 10, EAction: BlockEnd})
 	switch g.Player.Shield {
 	case EarthShield:
-		dir := m.Pos.Dir(g.Player.Pos)
-		lat := g.Player.Pos.Laterals(dir)
-		for _, pos := range lat {
-			if !pos.valid() {
+		dir := Dir(m.P, g.Player.P)
+		lat := Laterals(g.Player.P, dir)
+		for _, p := range lat {
+			if !valid(p) {
 				continue
 			}
-			if RandInt(3) == 0 && g.Dungeon.Cell(pos).T == WallCell {
-				g.Dungeon.SetCell(pos, FreeCell)
+			if RandInt(3) == 0 && g.Dungeon.Cell(p).T == WallCell {
+				g.Dungeon.SetCell(p, FreeCell)
 				g.Stats.Digs++
-				g.MakeNoise(WallNoise+3, pos)
-				g.Fog(pos, 1, g.Ev)
+				g.MakeNoise(WallNoise+3, p)
+				g.Fog(p, 1, g.Ev)
 				g.Printf("%s The sound of blocking breaks a wall.", g.CrackSound())
 			}
 		}
 	case BashingShield:
-		if m.Kind == MonsSatowalgaPlant || m.Pos.Distance(g.Player.Pos) > 1 {
+		if m.Kind == MonsSatowalgaPlant || Distance(m.P, g.Player.P) > 1 {
 			break
 		}
 		if RandInt(5) == 0 {
 			break
 		}
-		dir := m.Pos.Dir(g.Player.Pos)
-		pos := m.Pos
-		npos := pos
+		dir := Dir(m.P, g.Player.P)
+		p := m.P
+		npos := p
 		i := 0
 		for {
 			i++
-			npos = npos.To(dir)
-			if !npos.valid() || g.Dungeon.Cell(npos).T == WallCell {
+			npos = To(npos, dir)
+			if !valid(npos) || g.Dungeon.Cell(npos).T == WallCell {
 				break
 			}
 			mons := g.MonsterAt(npos)
 			if mons.Exists() {
 				continue
 			}
-			pos = npos
+			p = npos
 			if i >= 3 {
 				break
 			}
 		}
 		m.Exhaust(g)
-		if pos != m.Pos {
-			m.MoveTo(g, pos)
+		if p != m.P {
+			m.MoveTo(g, p)
 			g.Printf("%s is repelled.", m.Kind.Definite(true))
 		}
 	case ConfusingShield:
-		if m.Pos.Distance(g.Player.Pos) > 1 {
+		if Distance(m.P, g.Player.P) > 1 {
 			break
 		}
 		if RandInt(4) == 0 {
@@ -634,8 +635,8 @@ func (g *game) BlockEffects(m *monster) {
 			g.Printf("%s appears confused.", m.Kind.Definite(true))
 		}
 	case FireShield:
-		dir := m.Pos.Dir(g.Player.Pos)
-		burnpos := g.Player.Pos.To(dir)
+		dir := Dir(m.P, g.Player.P)
+		burnpos := To(g.Player.P, dir)
 		if RandInt(4) == 0 {
 			g.Print("Sparks emerge out of the shield.")
 			g.Burn(burnpos, g.Ev)

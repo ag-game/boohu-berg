@@ -1,3 +1,4 @@
+//go:build js || tk
 // +build js tk
 
 // font used for letters: source code pro

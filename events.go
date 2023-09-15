@@ -1,6 +1,10 @@
 package main
 
-import "container/heap"
+import (
+	"container/heap"
+
+	"codeberg.org/anaseto/gruid"
+)
 
 type event interface {
 	Rank() int
@@ -249,25 +253,25 @@ func (mev *monsterEvent) Action(g *game) {
 		mons := g.Monsters[mev.NMons]
 		if mons.Exists() {
 			mons.Statuses[MonsConfused] = 0
-			if g.Player.LOS[mons.Pos] {
+			if g.Player.LOS[mons.P] {
 				g.Printf("The %s is no longer confused.", mons.Kind)
 			}
-			mons.Path = mons.APath(g, mons.Pos, mons.Target)
+			mons.Path = mons.APath(g, mons.P, mons.Target)
 		}
 	case MonsLignificationEnd:
 		mons := g.Monsters[mev.NMons]
 		if mons.Exists() {
 			mons.Statuses[MonsLignified] = 0
-			if g.Player.LOS[mons.Pos] {
+			if g.Player.LOS[mons.P] {
 				g.Printf("%s is no longer lignified.", mons.Kind.Definite(true))
 			}
-			mons.Path = mons.APath(g, mons.Pos, mons.Target)
+			mons.Path = mons.APath(g, mons.P, mons.Target)
 		}
 	case MonsSlowEnd:
 		mons := g.Monsters[mev.NMons]
 		if mons.Exists() {
 			mons.Statuses[MonsSlow]--
-			if g.Player.LOS[mons.Pos] {
+			if g.Player.LOS[mons.P] {
 				g.Printf("%s is no longer slowed.", mons.Kind.Definite(true))
 			}
 		}
@@ -300,7 +304,7 @@ const (
 
 type cloudEvent struct {
 	ERank   int
-	Pos     position
+	P       gruid.Point
 	EAction cloudAction
 }
 
@@ -311,54 +315,54 @@ func (cev *cloudEvent) Rank() int {
 func (cev *cloudEvent) Action(g *game) {
 	switch cev.EAction {
 	case CloudEnd:
-		delete(g.Clouds, cev.Pos)
+		delete(g.Clouds, cev.P)
 		g.ComputeLOS()
 	case ObstructionEnd:
-		if !g.Player.LOS[cev.Pos] && g.Dungeon.Cell(cev.Pos).T == WallCell {
-			g.WrongWall[cev.Pos] = !g.WrongWall[cev.Pos]
+		if !g.Player.LOS[cev.P] && g.Dungeon.Cell(cev.P).T == WallCell {
+			g.WrongWall[cev.P] = !g.WrongWall[cev.P]
 		} else {
-			delete(g.TemporalWalls, cev.Pos)
+			delete(g.TemporalWalls, cev.P)
 		}
-		if g.Dungeon.Cell(cev.Pos).T == FreeCell {
+		if g.Dungeon.Cell(cev.P).T == FreeCell {
 			break
 		}
-		g.Dungeon.SetCell(cev.Pos, FreeCell)
-		g.MakeNoise(TemporalWallNoise, cev.Pos)
-		g.Fog(cev.Pos, 1, &simpleEvent{ERank: cev.Rank()})
+		g.Dungeon.SetCell(cev.P, FreeCell)
+		g.MakeNoise(TemporalWallNoise, cev.P)
+		g.Fog(cev.P, 1, &simpleEvent{ERank: cev.Rank()})
 		g.ComputeLOS()
 	case ObstructionProgression:
-		pos := g.FreeCell()
-		g.TemporalWallAt(pos, cev)
-		if g.Player.LOS[pos] {
+		p := g.FreeCell()
+		g.TemporalWallAt(p, cev)
+		if g.Player.LOS[p] {
 			g.Printf("You see a wall appear out of thin air.")
 			g.StopAuto()
 		}
 		g.PushEvent(&cloudEvent{ERank: cev.Rank() + 200 + RandInt(50), EAction: ObstructionProgression})
 	case FireProgression:
-		if _, ok := g.Clouds[cev.Pos]; !ok {
+		if _, ok := g.Clouds[cev.P]; !ok {
 			break
 		}
-		g.BurnCreature(cev.Pos, cev)
+		g.BurnCreature(cev.P, cev)
 		if RandInt(10) == 0 {
-			delete(g.Clouds, cev.Pos)
-			g.Fog(cev.Pos, 1, &simpleEvent{ERank: cev.Rank()})
+			delete(g.Clouds, cev.P)
+			g.Fog(cev.P, 1, &simpleEvent{ERank: cev.Rank()})
 			g.ComputeLOS()
 			break
 		}
-		for _, pos := range g.Dungeon.FreeNeighbors(cev.Pos) {
+		for _, p := range g.Dungeon.FreeNeighbors(cev.P) {
 			if RandInt(3) > 0 {
 				continue
 			}
-			g.Burn(pos, cev)
+			g.Burn(p, cev)
 		}
 		cev.Renew(g, 10)
 	case NightProgression:
-		if _, ok := g.Clouds[cev.Pos]; !ok {
+		if _, ok := g.Clouds[cev.P]; !ok {
 			break
 		}
-		g.MakeCreatureSleep(cev.Pos, cev)
+		g.MakeCreatureSleep(cev.P, cev)
 		if RandInt(20) == 0 {
-			delete(g.Clouds, cev.Pos)
+			delete(g.Clouds, cev.P)
 			g.ComputeLOS()
 			break
 		}
@@ -366,31 +370,31 @@ func (cev *cloudEvent) Action(g *game) {
 	}
 }
 
-func (g *game) MakeCreatureSleep(pos position, ev event) {
-	if pos == g.Player.Pos {
+func (g *game) MakeCreatureSleep(p gruid.Point, ev event) {
+	if p == g.Player.P {
 		g.Player.Statuses[StatusSlow]++
 		g.PushEvent(&simpleEvent{ERank: ev.Rank() + 30 + RandInt(10), EAction: SlowEnd})
 		g.Print("The clouds of night make you sleepy.")
 		return
 	}
-	mons := g.MonsterAt(pos)
+	mons := g.MonsterAt(p)
 	if !mons.Exists() || (RandInt(2) == 0 && mons.Status(MonsExhausted)) {
 		// do not always make already exhausted monsters sleep (they were probably awaken)
 		return
 	}
-	if mons.State != Resting && g.Player.LOS[mons.Pos] {
+	if mons.State != Resting && g.Player.LOS[mons.P] {
 		g.Printf("%s falls asleep.", mons.Kind.Definite(true))
 	}
 	mons.State = Resting
 	mons.ExhaustTime(g, 40+RandInt(10))
 }
 
-func (g *game) BurnCreature(pos position, ev event) {
-	mons := g.MonsterAt(pos)
+func (g *game) BurnCreature(p gruid.Point, ev event) {
+	mons := g.MonsterAt(p)
 	if mons.Exists() {
 		mons.HP -= 1 + RandInt(10)
 		if mons.HP <= 0 {
-			if g.Player.LOS[mons.Pos] {
+			if g.Player.LOS[mons.P] {
 				g.PrintfStyled("%s is killed by the fire.", logPlayerHit, mons.Kind.Definite(true))
 			}
 			g.HandleKill(mons, ev)
@@ -398,7 +402,7 @@ func (g *game) BurnCreature(pos position, ev event) {
 			mons.MakeAwareIfHurt(g)
 		}
 	}
-	if pos == g.Player.Pos {
+	if p == g.Player.P {
 		damage := 1 + RandInt(10)
 		if damage > g.Player.HP {
 			damage = 1 + RandInt(10)
@@ -412,35 +416,35 @@ func (g *game) BurnCreature(pos position, ev event) {
 	}
 }
 
-func (g *game) Burn(pos position, ev event) {
-	if _, ok := g.Clouds[pos]; ok {
+func (g *game) Burn(p gruid.Point, ev event) {
+	if _, ok := g.Clouds[p]; ok {
 		return
 	}
-	_, okFungus := g.Fungus[pos]
-	_, okDoor := g.Doors[pos]
+	_, okFungus := g.Fungus[p]
+	_, okDoor := g.Doors[p]
 	if !okFungus && !okDoor {
 		return
 	}
 	g.Stats.Burns++
 	foliage := true
-	delete(g.Fungus, pos)
-	if _, ok := g.Doors[pos]; ok {
-		delete(g.Doors, pos)
+	delete(g.Fungus, p)
+	if _, ok := g.Doors[p]; ok {
+		delete(g.Doors, p)
 		foliage = false
 		g.Print("The door vanishes in flames.")
 	}
-	g.Clouds[pos] = CloudFire
-	if !g.Player.LOS[pos] {
+	g.Clouds[p] = CloudFire
+	if !g.Player.LOS[p] {
 		if foliage {
-			g.WrongFoliage[pos] = true
+			g.WrongFoliage[p] = true
 		} else {
-			g.WrongDoor[pos] = true
+			g.WrongDoor[p] = true
 		}
 	} else {
 		g.ComputeLOS()
 	}
-	g.PushEvent(&cloudEvent{ERank: ev.Rank() + 10, EAction: FireProgression, Pos: pos})
-	g.BurnCreature(pos, ev)
+	g.PushEvent(&cloudEvent{ERank: ev.Rank() + 10, EAction: FireProgression, P: p})
+	g.BurnCreature(p, ev)
 }
 
 func (cev *cloudEvent) Renew(g *game, delay int) {

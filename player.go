@@ -1,10 +1,11 @@
 package main
 
 import (
-	"codeberg.org/anaseto/gruid"
-	"codeberg.org/anaseto/gruid/rl"
 	"errors"
 	"fmt"
+
+	"codeberg.org/anaseto/gruid"
+	"codeberg.org/anaseto/gruid/rl"
 )
 
 type player struct {
@@ -19,9 +20,9 @@ type player struct {
 	Aptitudes   map[aptitude]bool
 	Statuses    map[status]int
 	Expire      map[status]int
-	Pos         position
-	Target      position
-	LOS         map[position]bool
+	P           gruid.Point
+	Target      gruid.Point
+	LOS         map[gruid.Point]bool
 	FOV         *rl.FOV
 	Bored       int
 	AccScore    int
@@ -149,7 +150,7 @@ func (p *player) AptitudeCount() int {
 
 func (g *game) AutoToDir(ev event) bool {
 	if g.MonsterInLOS() == nil {
-		err := g.MovePlayer(g.Player.Pos.To(g.AutoDir), ev)
+		err := g.MovePlayer(To(g.Player.P, g.AutoDir), ev)
 		if err != nil {
 			g.Print(err.Error())
 			g.AutoDir = NoDir
@@ -166,7 +167,7 @@ func (g *game) GoToDir(dir direction, ev event) error {
 		g.AutoDir = NoDir
 		return errors.New("You cannot travel while there are monsters in view.")
 	}
-	err := g.MovePlayer(g.Player.Pos.To(dir), ev)
+	err := g.MovePlayer(To(g.Player.P, dir), ev)
 	if err != nil {
 		return err
 	}
@@ -175,10 +176,10 @@ func (g *game) GoToDir(dir direction, ev event) error {
 }
 
 func (g *game) MoveToTarget(ev event) bool {
-	if !g.AutoTarget.valid() {
+	if !valid(g.AutoTarget) {
 		return false
 	}
-	path := g.PlayerPath(g.Player.Pos, g.AutoTarget)
+	path := g.PlayerPath(g.Player.P, g.AutoTarget)
 	if g.MonsterInLOS() != nil {
 		g.AutoTarget = InvalidPos
 	}
@@ -200,7 +201,7 @@ func (g *game) MoveToTarget(ev event) bool {
 		g.AutoTarget = InvalidPos
 		return false
 	}
-	if g.AutoTarget.valid() && g.Player.Pos == g.AutoTarget {
+	if valid(g.AutoTarget) && g.Player.P == g.AutoTarget {
 		g.AutoTarget = InvalidPos
 	}
 	return true
@@ -266,7 +267,7 @@ func (g *game) Rest(ev event) error {
 	if g.MonsterInLOS() != nil {
 		return fmt.Errorf("You cannot sleep while monsters are in view.")
 	}
-	if cld, ok := g.Clouds[g.Player.Pos]; ok && cld == CloudFire {
+	if cld, ok := g.Clouds[g.Player.P]; ok && cld == CloudFire {
 		return errors.New("You cannot rest on flames.")
 	}
 	if !g.NeedsRegenRest() && !g.StatusRest() {
@@ -296,7 +297,7 @@ func (g *game) NeedsRegenRest() bool {
 }
 
 func (g *game) Equip(ev event) error {
-	if eq, ok := g.Equipables[g.Player.Pos]; ok {
+	if eq, ok := g.Equipables[g.Player.P]; ok {
 		eq.Equip(g)
 		ev.Renew(g, 10)
 		g.BoredomAction(ev, 1)
@@ -306,7 +307,7 @@ func (g *game) Equip(ev event) error {
 }
 
 func (g *game) Teleportation(ev event) {
-	var pos position
+	var p gruid.Point
 	i := 0
 	count := 0
 	for {
@@ -314,20 +315,20 @@ func (g *game) Teleportation(ev event) {
 		if count > 1000 {
 			panic("Teleportation")
 		}
-		pos = g.FreeCell()
-		if pos.Distance(g.Player.Pos) < 15 && i < 1000 {
+		p = g.FreeCell()
+		if Distance(p, g.Player.P) < 15 && i < 1000 {
 			i++
 			continue
 		}
 		break
 
 	}
-	if pos.valid() {
+	if valid(p) {
 		// should always happen
-		opos := g.Player.Pos
+		opos := g.Player.P
 		g.Print("You teleport away.")
-		g.ui.TeleportAnimation(opos, pos, true)
-		g.PlacePlayerAt(pos)
+		g.ui.TeleportAnimation(opos, p, true)
+		g.PlacePlayerAt(p)
 	} else {
 		// should not happen
 		g.Print("Something went wrong with the teleportation.")
@@ -335,21 +336,21 @@ func (g *game) Teleportation(ev event) {
 }
 
 func (g *game) CollectGround() {
-	pos := g.Player.Pos
-	if g.Simellas[pos] > 0 {
-		g.Player.Simellas += g.Simellas[pos]
-		if g.Simellas[pos] == 1 {
+	p := g.Player.P
+	if g.Simellas[p] > 0 {
+		g.Player.Simellas += g.Simellas[p]
+		if g.Simellas[p] == 1 {
 			g.Print("You pick up a simella.")
 		} else {
-			g.Printf("You pick up %d simellas.", g.Simellas[pos])
+			g.Printf("You pick up %d simellas.", g.Simellas[p])
 		}
 		g.DijkstraMapRebuild = true
-		delete(g.Simellas, pos)
+		delete(g.Simellas, p)
 	}
-	if c, ok := g.Collectables[pos]; ok {
+	if c, ok := g.Collectables[p]; ok {
 		g.Player.Consumables[c.Consumable] += c.Quantity
 		g.DijkstraMapRebuild = true
-		delete(g.Collectables, pos)
+		delete(g.Collectables, p)
 		if c.Quantity > 1 {
 			g.Printf("You take %d %s.", c.Quantity, c.Consumable.Plural())
 			g.StoryPrintf("Took %d %s.", c.Quantity, c.Consumable.Plural())
@@ -358,53 +359,53 @@ func (g *game) CollectGround() {
 			g.StoryPrintf("Took %s.", Indefinite(c.Consumable.String(), false))
 		}
 	}
-	if r, ok := g.Rods[pos]; ok {
+	if r, ok := g.Rods[p]; ok {
 		g.Player.Rods[r] = rodProps{Charge: r.MaxCharge() - 1}
 		g.DijkstraMapRebuild = true
-		delete(g.Rods, pos)
+		delete(g.Rods, p)
 		g.Printf("You take a %s.", r)
 		g.StoryPrintf("Found and took a %s.", r)
 	}
-	if eq, ok := g.Equipables[pos]; ok {
+	if eq, ok := g.Equipables[p]; ok {
 		g.Printf("You are standing over %s.", Indefinite(eq.String(), false))
-	} else if _, ok := g.Stairs[pos]; ok {
+	} else if _, ok := g.Stairs[p]; ok {
 		g.Print("You are standing on a staircase.")
-	} else if stn, ok := g.MagicalStones[pos]; ok {
+	} else if stn, ok := g.MagicalStones[p]; ok {
 		g.Printf("You are standing on %s.", Indefinite(stn.String(), false))
-	} else if g.Doors[pos] {
+	} else if g.Doors[p] {
 		g.Print("You stand at the door.")
 	}
 }
 
-func (g *game) MovePlayer(pos position, ev event) error {
-	if !pos.valid() {
+func (g *game) MovePlayer(p gruid.Point, ev event) error {
+	if !valid(p) {
 		return errors.New("You cannot move there.")
 	}
-	c := g.Dungeon.Cell(pos)
+	c := g.Dungeon.Cell(p)
 	if c.T == WallCell && !g.Player.HasStatus(StatusDig) {
 		return errors.New("You cannot move into a wall.")
 	}
 	if g.Player.HasStatus(StatusConfusion) {
-		switch pos.Dir(g.Player.Pos) {
+		switch Dir(p, g.Player.P) {
 		case E, N, W, S:
 		default:
 			return errors.New("You cannot use diagonal movements while confused.")
 		}
 	}
 	delay := 10
-	mons := g.MonsterAt(pos)
+	mons := g.MonsterAt(p)
 	if g.Player.Weapon == DefenderFlail && !mons.Exists() {
-		mons = g.AttractMonster(pos)
+		mons = g.AttractMonster(p)
 	}
 	if !mons.Exists() {
 		if g.Player.HasStatus(StatusLignification) {
 			return errors.New("You cannot move while lignified")
 		}
 		if c.T == WallCell {
-			g.Dungeon.SetCell(pos, FreeCell)
-			g.MakeNoise(WallNoise, pos)
+			g.Dungeon.SetCell(p, FreeCell)
+			g.MakeNoise(WallNoise, p)
 			g.Print(g.CrackSound())
-			g.Fog(pos, 1, ev)
+			g.Fog(p, 1, ev)
 			g.Stats.Digs++
 		}
 		if g.Player.Aptitudes[AptFast] {
@@ -417,10 +418,10 @@ func (g *game) MovePlayer(pos position, ev event) error {
 		case SpeedRobe:
 			delay -= 3
 		case SmokingScales:
-			_, ok := g.Clouds[g.Player.Pos]
+			_, ok := g.Clouds[g.Player.P]
 			if !ok {
-				g.Clouds[g.Player.Pos] = CloudFog
-				g.PushEvent(&cloudEvent{ERank: ev.Rank() + 15 + RandInt(10), EAction: CloudEnd, Pos: g.Player.Pos})
+				g.Clouds[g.Player.P] = CloudFog
+				g.PushEvent(&cloudEvent{ERank: ev.Rank() + 15 + RandInt(10), EAction: CloudEnd, P: g.Player.P})
 			}
 		}
 		if g.Player.HasStatus(StatusSwift) {
@@ -428,7 +429,7 @@ func (g *game) MovePlayer(pos position, ev event) error {
 			delay -= 3
 		}
 		g.Stats.Moves++
-		g.PlacePlayerAt(pos)
+		g.PlacePlayerAt(p)
 		if !g.Autoexploring {
 			g.BoredomAction(ev, 1)
 		}
@@ -471,13 +472,13 @@ func (g *game) MPRegen(ev event) {
 func (g *game) Smoke(ev event) {
 	dij := &normalPath{game: g}
 	const radius = 2
-	nodes := g.PR.BreadthFirstMap(dij, []gruid.Point{pos2Point(g.Player.Pos)}, radius)
+	nodes := g.PR.BreadthFirstMap(dij, []gruid.Point{g.Player.P}, radius)
 	for _, n := range nodes {
-		pos := point2Pos(n.P)
-		_, ok := g.Clouds[pos]
+		p := n.P
+		_, ok := g.Clouds[p]
 		if !ok {
-			g.Clouds[pos] = CloudFog
-			g.PushEvent(&cloudEvent{ERank: ev.Rank() + 100 + RandInt(100), EAction: CloudEnd, Pos: pos})
+			g.Clouds[p] = CloudFog
+			g.PushEvent(&cloudEvent{ERank: ev.Rank() + 100 + RandInt(100), EAction: CloudEnd, P: p})
 		}
 	}
 	g.Player.Statuses[StatusSwift]++
@@ -502,8 +503,8 @@ func (g *game) Confusion(ev event) {
 	}
 }
 
-func (g *game) PlacePlayerAt(pos position) {
-	g.Player.Pos = pos
+func (g *game) PlacePlayerAt(p gruid.Point) {
+	g.Player.P = p
 	g.CollectGround()
 	g.ComputeLOS()
 	g.MakeMonstersAware()

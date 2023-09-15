@@ -8,6 +8,8 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"codeberg.org/anaseto/gruid"
 )
 
 type UICell struct {
@@ -30,8 +32,8 @@ func (ui *gameui) HideCursor() {
 	ui.cursor = InvalidPos
 }
 
-func (ui *gameui) SetCursor(pos position) {
-	ui.cursor = pos
+func (ui *gameui) SetCursor(p gruid.Point) {
+	ui.cursor = p
 }
 
 func (ui *gameui) KeyToRuneKeyAction(in uiInput) rune {
@@ -156,7 +158,7 @@ func (ui *gameui) PlayerTurnEvent(ev event) (err error, again, quit bool) {
 	switch in.key {
 	case "":
 		if in.mouse {
-			pos := position{X: in.mouseX, Y: in.mouseY}
+			p := gruid.Point{X: in.mouseX, Y: in.mouseY}
 			switch in.button {
 			case -1:
 				if in.mouseY == DungeonHeight {
@@ -194,7 +196,7 @@ func (ui *gameui) PlayerTurnEvent(ev event) (err error, again, quit bool) {
 				} else if in.mouseX >= DungeonWidth || in.mouseY >= DungeonHeight {
 					again = true
 				} else {
-					err, again, quit = ui.ExaminePos(ev, pos)
+					err, again, quit = ui.ExaminePos(ev, p)
 				}
 			case 2:
 				err, again, quit = ui.HandleKeyAction(runeKeyAction{k: KeyMenu})
@@ -425,7 +427,7 @@ func (ui *gameui) TargetModeEvent(targ Targeter, data *examineData) (err error, 
 				err = errors.New(DoNothing)
 				break
 			}
-			mpos := position{in.mouseX, in.mouseY}
+			mpos := gruid.Point{in.mouseX, in.mouseY}
 			if g.Targeting == mpos {
 				break
 			}
@@ -446,7 +448,7 @@ func (ui *gameui) TargetModeEvent(targ Targeter, data *examineData) (err error, 
 				notarg = true
 				err = errors.New(DoNothing)
 			} else {
-				again, notarg = ui.CursorMouseLeft(targ, position{X: in.mouseX, Y: in.mouseY}, data)
+				again, notarg = ui.CursorMouseLeft(targ, gruid.Point{X: in.mouseX, Y: in.mouseY}, data)
 			}
 		case 2:
 			if in.mouseY >= DungeonHeight || in.mouseX >= DungeonWidth {
@@ -976,7 +978,7 @@ func (ui *gameui) HandleKey(rka runeKeyAction) (err error, again bool, quit bool
 	g := ui.g
 	switch rka.k {
 	case KeyW, KeyS, KeyN, KeyE, KeyNW, KeyNE, KeySW, KeySE:
-		err = g.MovePlayer(g.Player.Pos.To(KeyToDir(rka.k)), g.Ev)
+		err = g.MovePlayer(To(g.Player.P, KeyToDir(rka.k)), g.Ev)
 	case KeyRunW, KeyRunS, KeyRunN, KeyRunE, KeyRunNW, KeyRunNE, KeyRunSW, KeyRunSE:
 		err = g.GoToDir(KeyToDir(rka.k), g.Ev)
 	case KeyWaitTurn:
@@ -985,7 +987,7 @@ func (ui *gameui) HandleKey(rka runeKeyAction) (err error, again bool, quit bool
 		err = g.Rest(g.Ev)
 		ui.MenuSelectedAnimation(MenuRest, err == nil)
 	case KeyDescend:
-		if st, ok := g.Stairs[g.Player.Pos]; ok {
+		if st, ok := g.Stairs[g.Player.P]; ok {
 			ui.MenuSelectedAnimation(MenuInteract, true)
 			err = ui.OptionalDescendConfirmation(st)
 			if err != nil {
@@ -1002,10 +1004,10 @@ func (ui *gameui) HandleKey(rka runeKeyAction) (err error, again bool, quit bool
 		}
 	case KeyGoToStairs:
 		stairs := g.StairsSlice()
-		sortedStairs := g.SortedNearestTo(stairs, g.Player.Pos)
+		sortedStairs := g.SortedNearestTo(stairs, g.Player.P)
 		if len(sortedStairs) > 0 {
 			stair := sortedStairs[0]
-			if g.Player.Pos == stair {
+			if g.Player.P == stair {
 				err = errors.New("You are already on the stairs.")
 				break
 			}
@@ -1106,16 +1108,16 @@ func (ui *gameui) HandleKey(rka runeKeyAction) (err error, again bool, quit bool
 	return err, again, quit
 }
 
-func (ui *gameui) ExaminePos(ev event, pos position) (err error, again, quit bool) {
-	var start *position
-	if pos.valid() {
-		start = &pos
+func (ui *gameui) ExaminePos(ev event, p gruid.Point) (err error, again, quit bool) {
+	var start *gruid.Point
+	if valid(p) {
+		start = &p
 	}
 	err, again, quit = ui.Examine(start)
 	return err, again, quit
 }
 
-func (ui *gameui) Examine(start *position) (err error, again, quit bool) {
+func (ui *gameui) Examine(start *gruid.Point) (err error, again, quit bool) {
 	ex := &examiner{}
 	err, again, quit = ui.CursorAction(ex, start)
 	return err, again, quit
@@ -1132,7 +1134,7 @@ func (ui *gameui) ChooseTarget(targ Targeter) error {
 	return nil
 }
 
-func (ui *gameui) NextMonster(r rune, pos position, data *examineData) {
+func (ui *gameui) NextMonster(r rune, p gruid.Point, data *examineData) {
 	g := ui.g
 	nmonster := data.nmonster
 	for i := 0; i < len(g.Monsters); i++ {
@@ -1147,12 +1149,12 @@ func (ui *gameui) NextMonster(r rune, pos position, data *examineData) {
 			nmonster = len(g.Monsters) - 1
 		}
 		mons := g.Monsters[nmonster]
-		if mons.Exists() && g.Player.LOS[mons.Pos] && pos != mons.Pos {
-			pos = mons.Pos
+		if mons.Exists() && g.Player.LOS[mons.P] && p != mons.P {
+			p = mons.P
 			break
 		}
 	}
-	data.npos = pos
+	data.npos = p
 	data.nmonster = nmonster
 }
 
@@ -1160,7 +1162,7 @@ func (ui *gameui) NextStair(data *examineData) {
 	g := ui.g
 	if data.sortedStairs == nil {
 		stairs := g.StairsSlice()
-		data.sortedStairs = g.SortedNearestTo(stairs, g.Player.Pos)
+		data.sortedStairs = g.SortedNearestTo(stairs, g.Player.P)
 	}
 	if data.stairIndex >= len(data.sortedStairs) {
 		data.stairIndex = 0
@@ -1171,7 +1173,7 @@ func (ui *gameui) NextStair(data *examineData) {
 	}
 }
 
-func (ui *gameui) NextObject(pos position, data *examineData) {
+func (ui *gameui) NextObject(at gruid.Point, data *examineData) {
 	g := ui.g
 	nobject := data.nobject
 	if len(data.objects) == 0 {
@@ -1190,7 +1192,7 @@ func (ui *gameui) NextObject(pos position, data *examineData) {
 		for p := range g.MagicalStones {
 			data.objects = append(data.objects, p)
 		}
-		data.objects = g.SortedNearestTo(data.objects, g.Player.Pos)
+		data.objects = g.SortedNearestTo(data.objects, g.Player.P)
 	}
 	for i := 0; i < len(data.objects); i++ {
 		p := data.objects[nobject]
@@ -1199,29 +1201,29 @@ func (ui *gameui) NextObject(pos position, data *examineData) {
 			nobject = 0
 		}
 		if g.Dungeon.Cell(p).Explored {
-			pos = p
+			at = p
 			break
 		}
 	}
-	data.npos = pos
+	data.npos = at
 	data.nobject = nobject
 }
 
-func (ui *gameui) ExcludeZone(pos position) {
+func (ui *gameui) ExcludeZone(p gruid.Point) {
 	g := ui.g
-	if !g.Dungeon.Cell(pos).Explored {
+	if !g.Dungeon.Cell(p).Explored {
 		g.Print("You cannot choose an unexplored cell for exclusion.")
 	} else {
-		toggle := !g.ExclusionsMap[pos]
-		g.ComputeExclusion(pos, toggle)
+		toggle := !g.ExclusionsMap[p]
+		g.ComputeExclusion(p, toggle)
 	}
 }
 
-func (ui *gameui) CursorMouseLeft(targ Targeter, pos position, data *examineData) (again, notarg bool) {
+func (ui *gameui) CursorMouseLeft(targ Targeter, p gruid.Point, data *examineData) (again, notarg bool) {
 	g := ui.g
 	again = true
-	if data.npos == pos {
-		err := targ.Action(g, pos)
+	if data.npos == p {
+		err := targ.Action(g, p)
 		if err != nil {
 			g.Print(err.Error())
 		} else {
@@ -1233,14 +1235,14 @@ func (ui *gameui) CursorMouseLeft(targ Targeter, pos position, data *examineData
 			}
 		}
 	} else {
-		data.npos = pos
+		data.npos = p
 	}
 	return again, notarg
 }
 
 func (ui *gameui) CursorKeyAction(targ Targeter, rka runeKeyAction, data *examineData) (err error, again, quit, notarg bool) {
 	g := ui.g
-	pos := data.npos
+	p := data.npos
 	again = true
 	if rka.r != 0 {
 		var ok bool
@@ -1259,11 +1261,11 @@ func (ui *gameui) CursorKeyAction(targ Targeter, rka runeKeyAction, data *examin
 	}
 	switch rka.k {
 	case KeyW, KeyS, KeyN, KeyE, KeyNW, KeyNE, KeySW, KeySE:
-		data.npos = pos.To(KeyToDir(rka.k))
+		data.npos = To(p, KeyToDir(rka.k))
 	case KeyRunW, KeyRunS, KeyRunN, KeyRunE, KeyRunNW, KeyRunNE, KeyRunSW, KeyRunSE:
 		for i := 0; i < 5; i++ {
-			p := data.npos.To(KeyToDir(rka.k))
-			if !p.valid() {
+			p := To(data.npos, KeyToDir(rka.k))
+			if !valid(p) {
 				break
 			}
 			data.npos = p
@@ -1271,7 +1273,7 @@ func (ui *gameui) CursorKeyAction(targ Targeter, rka runeKeyAction, data *examin
 	case KeyNextStairs:
 		ui.NextStair(data)
 	case KeyDescend:
-		if strt, ok := g.Stairs[g.Player.Pos]; ok {
+		if strt, ok := g.Stairs[g.Player.P]; ok {
 			ui.MenuSelectedAnimation(MenuInteract, true)
 			err = ui.OptionalDescendConfirmation(strt)
 			if err != nil {
@@ -1289,19 +1291,19 @@ func (ui *gameui) CursorKeyAction(targ Targeter, rka runeKeyAction, data *examin
 			err = errors.New("No stairs here.")
 		}
 	case KeyPreviousMonster, KeyNextMonster:
-		ui.NextMonster(rka.r, pos, data)
+		ui.NextMonster(rka.r, p, data)
 	case KeyNextObject:
-		ui.NextObject(pos, data)
+		ui.NextObject(p, data)
 	case KeyHelp, KeyMenuTargetingHelp:
 		ui.HideCursor()
 		ui.ExamineHelp()
-		ui.SetCursor(pos)
+		ui.SetCursor(p)
 	case KeyMenuCommandHelp:
 		ui.HideCursor()
 		ui.KeysHelp()
-		ui.SetCursor(pos)
+		ui.SetCursor(p)
 	case KeyTarget:
-		err = targ.Action(g, pos)
+		err = targ.Action(g, p)
 		if err != nil {
 			break
 		}
@@ -1314,10 +1316,10 @@ func (ui *gameui) CursorKeyAction(targ Targeter, rka runeKeyAction, data *examin
 		}
 	case KeyDescription:
 		ui.HideCursor()
-		ui.ViewPositionDescription(pos)
-		ui.SetCursor(pos)
+		ui.ViewPositionDescription(p)
+		ui.SetCursor(p)
 	case KeyExclude:
-		ui.ExcludeZone(pos)
+		ui.ExcludeZone(p)
 	case KeyEscape:
 		g.Targeting = InvalidPos
 		notarg = true
@@ -1358,56 +1360,56 @@ func (ui *gameui) CursorKeyAction(targ Targeter, rka runeKeyAction, data *examin
 }
 
 type examineData struct {
-	npos         position
+	npos         gruid.Point
 	nmonster     int
-	objects      []position
+	objects      []gruid.Point
 	nobject      int
-	sortedStairs []position
+	sortedStairs []gruid.Point
 	stairIndex   int
 }
 
-var InvalidPos = position{-1, -1}
+var InvalidPos = gruid.Point{-1, -1}
 
-func (ui *gameui) CursorAction(targ Targeter, start *position) (err error, again, quit bool) {
+func (ui *gameui) CursorAction(targ Targeter, start *gruid.Point) (err error, again, quit bool) {
 	g := ui.g
-	pos := g.Player.Pos
+	p := g.Player.P
 	if start != nil {
-		pos = *start
+		p = *start
 	} else {
 		minDist := 999
 		for _, mons := range g.Monsters {
-			if mons.Exists() && g.Player.LOS[mons.Pos] {
-				dist := mons.Pos.Distance(g.Player.Pos)
+			if mons.Exists() && g.Player.LOS[mons.P] {
+				dist := Distance(mons.P, g.Player.P)
 				if minDist > dist {
 					minDist = dist
-					pos = mons.Pos
+					p = mons.P
 				}
 			}
 		}
 	}
 	data := &examineData{
-		npos:    pos,
-		objects: []position{},
+		npos:    p,
+		objects: []gruid.Point{},
 	}
-	if _, ok := targ.(*examiner); ok && pos == g.Player.Pos && start == nil {
+	if _, ok := targ.(*examiner); ok && p == g.Player.P && start == nil {
 		ui.NextObject(InvalidPos, data)
-		if !data.npos.valid() {
+		if !valid(data.npos) {
 			ui.NextStair(data)
 		}
-		if data.npos.valid() {
-			pos = data.npos
+		if valid(data.npos) {
+			p = data.npos
 		}
 	}
 	opos := InvalidPos
 loop:
 	for {
 		err = nil
-		if pos != opos {
-			ui.DescribePosition(pos, targ)
+		if p != opos {
+			ui.DescribePosition(p, targ)
 		}
-		opos = pos
-		targ.ComputeHighlight(g, pos)
-		ui.SetCursor(pos)
+		opos = p
+		targ.ComputeHighlight(g, p)
+		ui.SetCursor(p)
 		ui.DrawDungeonView(TargetingMode)
 		ui.DrawInfoLine(g.InfoEntry)
 		if !ui.Small() {
@@ -1419,7 +1421,7 @@ loop:
 		}
 		ui.SetCell(DungeonWidth, DungeonHeight, '┤', ColorFg, ColorBg)
 		ui.Flush()
-		data.npos = pos
+		data.npos = p
 		var notarg bool
 		err, again, quit, notarg = ui.TargetModeEvent(targ, data)
 		if err != nil {
@@ -1431,8 +1433,8 @@ loop:
 		if err != nil {
 			g.Print(err.Error())
 		}
-		if data.npos.valid() {
-			pos = data.npos
+		if valid(data.npos) {
+			p = data.npos
 		}
 	}
 	g.Highlight = nil
@@ -1487,9 +1489,9 @@ func (m menu) Key(g *game) (key keyAction) {
 	case MenuOther:
 		key = KeyMenu
 	case MenuInteract:
-		if _, ok := g.Equipables[g.Player.Pos]; ok {
+		if _, ok := g.Equipables[g.Player.P]; ok {
 			key = KeyEquip
-		} else if _, ok := g.Stairs[g.Player.Pos]; ok {
+		} else if _, ok := g.Stairs[g.Player.P]; ok {
 			key = KeyDescend
 		}
 	}
@@ -1522,9 +1524,9 @@ func (ui *gameui) WhichButton(col int) (menu, bool) {
 		return MenuOther, false
 	}
 	end := len(MenuCols) - 1
-	if _, ok := g.Equipables[g.Player.Pos]; ok {
+	if _, ok := g.Equipables[g.Player.P]; ok {
 		end++
-	} else if _, ok := g.Stairs[g.Player.Pos]; ok {
+	} else if _, ok := g.Stairs[g.Player.P]; ok {
 		end++
 	}
 	for i, cols := range MenuCols[0:end] {
@@ -1539,10 +1541,10 @@ func (ui *gameui) UpdateInteractButton() string {
 	g := ui.g
 	var interactMenu string
 	var show bool
-	if _, ok := g.Equipables[g.Player.Pos]; ok {
+	if _, ok := g.Equipables[g.Player.P]; ok {
 		interactMenu = "[equip]"
 		show = true
-	} else if _, ok := g.Stairs[g.Player.Pos]; ok {
+	} else if _, ok := g.Stairs[g.Player.P]; ok {
 		interactMenu = "[descend]"
 		show = true
 	}
@@ -1667,7 +1669,7 @@ getKey:
 	for {
 		var err error
 		var again, quit bool
-		if g.Targeting.valid() {
+		if valid(g.Targeting) {
 			err, again, quit = ui.ExaminePos(ev, g.Targeting)
 		} else {
 			ui.DrawDungeonView(NormalMode)

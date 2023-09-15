@@ -65,7 +65,7 @@ func (g *game) DumpStatuses() string {
 
 func (g *game) SortedRods() rodSlice {
 	var rs rodSlice
-	for k, _ := range g.Player.Rods {
+	for k := range g.Player.Rods {
 		rs = append(rs, k)
 	}
 	sort.Sort(rs)
@@ -124,9 +124,9 @@ func (g *game) Dump() string {
 	fmt.Fprintf(buf, "\n")
 	fmt.Fprintf(buf, "You have %d/%d HP, and %d/%d MP.\n", g.Player.HP, g.Player.HPMax(), g.Player.MP, g.Player.MPMax())
 	fmt.Fprintf(buf, "\n")
-	fmt.Fprintf(buf, g.DumpAptitudes())
+	fmt.Fprint(buf, g.DumpAptitudes())
 	fmt.Fprintf(buf, "\n\n")
-	fmt.Fprintf(buf, g.DumpStatuses())
+	fmt.Fprint(buf, g.DumpStatuses())
 	fmt.Fprintf(buf, "\n\n")
 	fmt.Fprintf(buf, "Equipment:\n")
 	fmt.Fprintf(buf, "You are wearing %s.\n", g.Player.Armour.StringIndefinite())
@@ -191,17 +191,17 @@ func (g *game) Dump() string {
 			fmt.Fprintf(buf, "%s\n", g.Log[i])
 		}
 	}
-	fmt.Fprintf(buf, "\n")
-	fmt.Fprintf(buf, "Dungeon:\n")
+	fmt.Fprint(buf, "\n")
+	fmt.Fprint(buf, "Dungeon:\n")
 	fmt.Fprintf(buf, "┌%s┐\n", strings.Repeat("─", DungeonWidth))
 	buf.WriteString(g.DumpDungeon())
 	fmt.Fprintf(buf, "└%s┘\n", strings.Repeat("─", DungeonWidth))
-	fmt.Fprintf(buf, "\n")
-	fmt.Fprintf(buf, g.DumpedKilledMonsters())
-	fmt.Fprintf(buf, "\n")
-	fmt.Fprintf(buf, "Timeline:\n")
-	fmt.Fprintf(buf, g.DumpStory())
-	fmt.Fprintf(buf, "\n")
+	fmt.Fprint(buf, "\n")
+	fmt.Fprint(buf, g.DumpedKilledMonsters())
+	fmt.Fprint(buf, "\n")
+	fmt.Fprint(buf, "Timeline:\n")
+	fmt.Fprint(buf, g.DumpStory())
+	fmt.Fprint(buf, "\n")
 	g.DetailedStatistics(buf)
 	return buf.String()
 }
@@ -307,7 +307,7 @@ func (g *game) DumpDungeon() string {
 				buf.WriteString("│\n│")
 			}
 		}
-		pos := idxtopos(i)
+		p := idx2Point(i)
 		if !c.Explored {
 			buf.WriteRune(' ')
 			if i == len(g.Dungeon.Cells)-1 {
@@ -321,36 +321,36 @@ func (g *game) DumpDungeon() string {
 			r = '#'
 		case FreeCell:
 			switch {
-			case pos == g.Player.Pos:
+			case p == g.Player.P:
 				r = '@'
 			default:
 				r = '.'
-				if _, ok := g.Fungus[pos]; ok {
+				if _, ok := g.Fungus[p]; ok {
 					r = '"'
 				}
-				if _, ok := g.Clouds[pos]; ok && g.Player.LOS[pos] {
+				if _, ok := g.Clouds[p]; ok && g.Player.LOS[p] {
 					r = '§'
 				}
-				if c, ok := g.Collectables[pos]; ok {
+				if c, ok := g.Collectables[p]; ok {
 					r = c.Consumable.Letter()
-				} else if eq, ok := g.Equipables[pos]; ok {
+				} else if eq, ok := g.Equipables[p]; ok {
 					r = eq.Letter()
-				} else if rd, ok := g.Rods[pos]; ok {
+				} else if rd, ok := g.Rods[p]; ok {
 					r = rd.Letter()
-				} else if strt, ok := g.Stairs[pos]; ok {
+				} else if strt, ok := g.Stairs[p]; ok {
 					r = '>'
 					if strt == WinStair {
 						r = 'Δ'
 					}
-				} else if _, ok := g.MagicalStones[pos]; ok {
+				} else if _, ok := g.MagicalStones[p]; ok {
 					r = '_'
-				} else if _, ok := g.Simellas[pos]; ok {
+				} else if _, ok := g.Simellas[p]; ok {
 					r = '♣'
-				} else if _, ok := g.Doors[pos]; ok {
+				} else if _, ok := g.Doors[p]; ok {
 					r = '+'
 				}
-				m := g.MonsterAt(pos)
-				if m.Exists() && (g.Player.LOS[m.Pos] || g.Wizard) {
+				m := g.MonsterAt(p)
+				if m.Exists() && (g.Player.LOS[m.P] || g.Wizard) {
 					r = m.Kind.Letter()
 				}
 			}

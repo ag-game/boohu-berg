@@ -1,10 +1,11 @@
 package main
 
 import (
-	"codeberg.org/anaseto/gruid"
 	"errors"
 	"fmt"
 	"sort"
+
+	"codeberg.org/anaseto/gruid"
 )
 
 type consumable interface {
@@ -318,13 +319,9 @@ func (g *game) QuaffLignification(ev event) error {
 	return nil
 }
 
-func idx(p gruid.Point) int {
-	return p.Y*DungeonWidth + p.X
-}
-
 func (g *game) QuaffMagicMapping(ev event) error {
 	dp := &dungeonPath{dungeon: g.Dungeon}
-	nodes := g.PR.BreadthFirstMap(dp, []gruid.Point{pos2Point(g.Player.Pos)}, unreachable)
+	nodes := g.PR.BreadthFirstMap(dp, []gruid.Point{g.Player.P}, unreachable)
 	cdists := make(map[int][]int)
 	for _, n := range nodes {
 		cdists[n.Cost] = append(cdists[n.Cost], idx(n.P))
@@ -338,10 +335,10 @@ func (g *game) QuaffMagicMapping(ev event) error {
 	for _, d := range dists {
 		draw := false
 		for _, i := range cdists[d] {
-			pos := idxtopos(i)
-			c := g.Dungeon.Cell(pos)
-			if (c.T == FreeCell || g.Dungeon.HasFreeNeighbor(pos)) && !c.Explored {
-				g.Dungeon.SetExplored(pos)
+			p := idx2Point(i)
+			c := g.Dungeon.Cell(p)
+			if (c.T == FreeCell || g.Dungeon.HasFreeNeighbor(p)) && !c.Explored {
+				g.Dungeon.SetExplored(p)
 				draw = true
 			}
 		}
@@ -359,13 +356,13 @@ func (g *game) QuaffTormentPotion(ev event) error {
 	g.Player.HP = g.Player.HP - damage
 	g.Stats.Damage += damage
 	g.ui.WoundedAnimation()
-	g.MakeNoise(ExplosionNoise+10, g.Player.Pos)
+	g.MakeNoise(ExplosionNoise+10, g.Player.P)
 	g.ui.TormentExplosionAnimation()
-	for pos, b := range g.Player.LOS {
+	for p, b := range g.Player.LOS {
 		if !b {
 			continue
 		}
-		g.ExplosionAt(ev, pos)
+		g.ExplosionAt(ev, p)
 	}
 	return nil
 }
@@ -381,8 +378,8 @@ func (g *game) QuaffAccuracyPotion(ev event) error {
 
 func (g *game) QuaffDreamPotion(ev event) error {
 	for _, mons := range g.Monsters {
-		if mons.Exists() && mons.State == Resting && !g.Player.LOS[mons.Pos] {
-			g.DreamingMonster[mons.Pos] = true
+		if mons.Exists() && mons.State == Resting && !g.Player.LOS[mons.P] {
+			g.DreamingMonster[mons.P] = true
 		}
 	}
 	g.Printf("You quaff the %s. You perceive monsters' dreams.", DreamPotion)
@@ -390,13 +387,13 @@ func (g *game) QuaffDreamPotion(ev event) error {
 }
 
 func (g *game) QuaffWallPotion(ev event) error {
-	neighbors := g.Dungeon.FreeNeighbors(g.Player.Pos)
-	for _, pos := range neighbors {
-		mons := g.MonsterAt(pos)
+	neighbors := g.Dungeon.FreeNeighbors(g.Player.P)
+	for _, p := range neighbors {
+		mons := g.MonsterAt(p)
 		if mons.Exists() {
 			continue
 		}
-		g.CreateTemporalWallAt(pos, ev)
+		g.CreateTemporalWallAt(p, ev)
 	}
 	g.Printf("You quaff the %s. You feel surrounded by temporary walls.", WallPotion)
 	g.ComputeLOS()
@@ -536,11 +533,11 @@ func (g *game) ThrowConfusingDart(ev event) error {
 	if mons.HP > 0 {
 		mons.EnterConfusion(g, ev)
 		g.PrintfStyled("Your %s hits the %s (%d dmg), who appears confused.", logPlayerHit, ConfusingDart, mons.Kind, attack)
-		g.ui.ThrowAnimation(g.Ray(mons.Pos), true)
+		g.ui.ThrowAnimation(g.Ray(mons.P), true)
 		mons.MakeHuntIfHurt(g)
 	} else {
 		g.PrintfStyled("Your %s kills the %s.", logPlayerHit, ConfusingDart, mons.Kind)
-		g.ui.ThrowAnimation(g.Ray(mons.Pos), true)
+		g.ui.ThrowAnimation(g.Ray(mons.P), true)
 		g.HandleKill(mons, ev)
 	}
 	g.HandleStone(mons)
@@ -548,27 +545,27 @@ func (g *game) ThrowConfusingDart(ev event) error {
 	return nil
 }
 
-func (g *game) ExplosionAt(ev event, pos position) {
-	g.Burn(pos, ev)
-	mons := g.MonsterAt(pos)
+func (g *game) ExplosionAt(ev event, p gruid.Point) {
+	g.Burn(p, ev)
+	mons := g.MonsterAt(p)
 	if mons.Exists() {
 		mons.HP /= 2
 		if mons.HP == 0 {
 			mons.HP = 1
 		}
-		g.MakeNoise(ExplosionHitNoise, mons.Pos)
+		g.MakeNoise(ExplosionHitNoise, mons.P)
 		g.HandleStone(mons)
 		mons.MakeHuntIfHurt(g)
-	} else if g.Dungeon.Cell(pos).T == WallCell && RandInt(2) == 0 {
-		g.Dungeon.SetCell(pos, FreeCell)
+	} else if g.Dungeon.Cell(p).T == WallCell && RandInt(2) == 0 {
+		g.Dungeon.SetCell(p, FreeCell)
 		g.Stats.Digs++
-		if !g.Player.LOS[pos] {
-			g.WrongWall[pos] = true
+		if !g.Player.LOS[p] {
+			g.WrongWall[p] = true
 		} else {
-			g.ui.WallExplosionAnimation(pos)
+			g.ui.WallExplosionAnimation(p)
 		}
-		g.MakeNoise(WallNoise, pos)
-		g.Fog(pos, 1, ev)
+		g.MakeNoise(WallNoise, p)
+		g.Fog(p, 1, ev)
 	}
 }
 
@@ -576,13 +573,13 @@ func (g *game) ThrowExplosiveMagara(ev event) error {
 	if err := g.ui.ChooseTarget(&chooser{area: true, minDist: true, flammable: true, wall: true}); err != nil {
 		return err
 	}
-	neighbors := g.Player.Target.ValidNeighbors()
+	neighbors := ValidNeighbors(g.Player.Target)
 	g.Printf("You throw the explosive magara... %s", g.ExplosionSound())
 	g.MakeNoise(ExplosionNoise, g.Player.Target)
 	g.ui.ProjectileTrajectoryAnimation(g.Ray(g.Player.Target), ColorFgPlayer)
 	g.ui.ExplosionAnimation(FireExplosion, g.Player.Target)
-	for _, pos := range append(neighbors, g.Player.Target) {
-		g.ExplosionAt(ev, pos)
+	for _, p := range append(neighbors, g.Player.Target) {
+		g.ExplosionAt(ev, p)
 	}
 
 	ev.Renew(g, 7)
@@ -593,11 +590,11 @@ func (g *game) ThrowTeleportMagara(ev event) error {
 	if err := g.ui.ChooseTarget(&chooser{area: true, minDist: true}); err != nil {
 		return err
 	}
-	neighbors := g.Player.Target.ValidNeighbors()
+	neighbors := ValidNeighbors(g.Player.Target)
 	g.Print("You throw the teleport magara.")
 	g.ui.ProjectileTrajectoryAnimation(g.Ray(g.Player.Target), ColorFgPlayer)
-	for _, pos := range append(neighbors, g.Player.Target) {
-		mons := g.MonsterAt(pos)
+	for _, p := range append(neighbors, g.Player.Target) {
+		mons := g.MonsterAt(p)
 		if mons.Exists() {
 			mons.TeleportAway(g)
 		}
@@ -612,11 +609,11 @@ func (g *game) ThrowSlowingMagara(ev event) error {
 		return err
 	}
 	ray := g.Ray(g.Player.Target)
-	g.MakeNoise(MagicCastNoise, g.Player.Pos)
+	g.MakeNoise(MagicCastNoise, g.Player.P)
 	g.Print("Whoosh! A bolt of slowing emerges out of the magara.")
 	g.ui.SlowingMagaraAnimation(ray)
-	for _, pos := range ray {
-		mons := g.MonsterAt(pos)
+	for _, p := range ray {
+		mons := g.MonsterAt(p)
 		if !mons.Exists() {
 			continue
 		}
@@ -630,11 +627,11 @@ func (g *game) ThrowSlowingMagara(ev event) error {
 
 func (g *game) ThrowConfuseMagara(ev event) error {
 	g.Printf("You activate the %s. A harmonic light confuses monsters.", ConfuseMagara)
-	for pos, b := range g.Player.LOS {
+	for p, b := range g.Player.LOS {
 		if !b {
 			continue
 		}
-		mons := g.MonsterAt(pos)
+		mons := g.MonsterAt(p)
 		if mons.Exists() {
 			mons.EnterConfusion(g, ev)
 		}
@@ -644,16 +641,16 @@ func (g *game) ThrowConfuseMagara(ev event) error {
 	return nil
 }
 
-func (g *game) NightFog(at position, radius int, ev event) {
+func (g *game) NightFog(at gruid.Point, radius int, ev event) {
 	dij := &normalPath{game: g}
-	nodes := g.PR.BreadthFirstMap(dij, []gruid.Point{pos2Point(at)}, radius)
+	nodes := g.PR.BreadthFirstMap(dij, []gruid.Point{at}, radius)
 	for _, n := range nodes {
-		pos := point2Pos(n.P)
-		_, ok := g.Clouds[pos]
+		p := n.P
+		_, ok := g.Clouds[p]
 		if !ok {
-			g.Clouds[pos] = CloudNight
-			g.PushEvent(&cloudEvent{ERank: ev.Rank() + 10, EAction: NightProgression, Pos: pos})
-			g.MakeCreatureSleep(pos, ev)
+			g.Clouds[p] = CloudNight
+			g.PushEvent(&cloudEvent{ERank: ev.Rank() + 10, EAction: NightProgression, P: p})
+			g.MakeCreatureSleep(p, ev)
 		}
 	}
 	g.ComputeLOS()
@@ -733,7 +730,7 @@ func (ar armour) Equip(g *game) {
 		g.FoundEquipables[ar] = true
 	}
 	g.Printf("You put the %s on and leave your %s.", ar, oar)
-	g.Equipables[g.Player.Pos] = oar
+	g.Equipables[g.Player.P] = oar
 	if oar == CelmistRobe && g.Player.MP > g.Player.MPMax() {
 		g.Player.MP = g.Player.MPMax()
 	}
@@ -850,7 +847,7 @@ func (wp weapon) Equip(g *game) {
 	if wp == Frundis {
 		g.PrintfStyled("♫ ♪ … Oh, you're there, let's fight our way out!", logSpecial)
 	}
-	g.Equipables[g.Player.Pos] = owp
+	g.Equipables[g.Player.P] = owp
 }
 
 func (wp weapon) String() string {
@@ -1036,10 +1033,10 @@ func (sh shield) Equip(g *game) {
 		g.FoundEquipables[sh] = true
 	}
 	if osh != NoShield {
-		g.Equipables[g.Player.Pos] = osh
+		g.Equipables[g.Player.P] = osh
 		g.Printf("You put the %s on and leave your %s.", sh, osh)
 	} else {
-		delete(g.Equipables, g.Player.Pos)
+		delete(g.Equipables, g.Player.P)
 		g.Printf("You put the %s on.", sh)
 	}
 }

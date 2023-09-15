@@ -1,5 +1,7 @@
 package main
 
+import "codeberg.org/anaseto/gruid"
+
 type stone int
 
 const (
@@ -49,9 +51,9 @@ func (s stone) Description() (text string) {
 	return text
 }
 
-func (g *game) UseStone(pos position) {
-	g.StoryPrintf("Activated a %s.", g.MagicalStones[pos])
-	g.MagicalStones[pos] = InertStone
+func (g *game) UseStone(p gruid.Point) {
+	g.StoryPrintf("Activated a %s.", g.MagicalStones[p])
+	g.MagicalStones[p] = InertStone
 	g.Stats.UsedStones++
 	g.Print("The stone becomes inert.")
 }

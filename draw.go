@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"codeberg.org/anaseto/gruid"
 )
 
 var (
@@ -636,46 +638,46 @@ func (ui *gameui) AddComma(see, s string) string {
 	}
 	return fmt.Sprintf("You %s %s", see, s)
 }
-func (ui *gameui) DescribePosition(pos position, targ Targeter) {
+func (ui *gameui) DescribePosition(p gruid.Point, targ Targeter) {
 	g := ui.g
 	var desc string
 	switch {
-	case !g.Dungeon.Cell(pos).Explored:
+	case !g.Dungeon.Cell(p).Explored:
 		desc = "You do not know what is in there."
 		g.InfoEntry = desc
 		return
-	case !targ.Reachable(g, pos):
+	case !targ.Reachable(g, p):
 		desc = "This is out of reach."
 		g.InfoEntry = desc
 		return
 	}
-	mons := g.MonsterAt(pos)
-	c, okCollectable := g.Collectables[pos]
-	eq, okEq := g.Equipables[pos]
-	rod, okRod := g.Rods[pos]
-	if pos == g.Player.Pos {
+	mons := g.MonsterAt(p)
+	c, okCollectable := g.Collectables[p]
+	eq, okEq := g.Equipables[p]
+	rod, okRod := g.Rods[p]
+	if p == g.Player.P {
 		desc = "This is you"
 	}
 	see := "see"
-	if !g.Player.LOS[pos] {
+	if !g.Player.LOS[p] {
 		see = "saw"
 	}
-	if g.Dungeon.Cell(pos).T == WallCell && !g.WrongWall[pos] || g.Dungeon.Cell(pos).T == FreeCell && g.WrongWall[pos] {
+	if g.Dungeon.Cell(p).T == WallCell && !g.WrongWall[p] || g.Dungeon.Cell(p).T == FreeCell && g.WrongWall[p] {
 		desc = ui.AddComma(see, "")
-		desc += fmt.Sprintf("a wall")
+		desc += "a wall"
 		g.InfoEntry = desc + "."
 		return
 	}
-	if mons.Exists() && g.Player.LOS[pos] {
+	if mons.Exists() && g.Player.LOS[p] {
 		desc = ui.AddComma(see, desc)
 		desc += fmt.Sprintf("%s (%s)", mons.Kind.Indefinite(false), ui.MonsterInfo(mons))
 	}
-	strt, okStair := g.Stairs[pos]
-	stn, okStone := g.MagicalStones[pos]
+	strt, okStair := g.Stairs[p]
+	stn, okStone := g.MagicalStones[p]
 	switch {
-	case g.Simellas[pos] > 0:
+	case g.Simellas[p] > 0:
 		desc = ui.AddComma(see, desc)
-		desc += fmt.Sprintf("some simellas (%d)", g.Simellas[pos])
+		desc += fmt.Sprintf("some simellas (%d)", g.Simellas[p])
 	case okCollectable:
 		if c.Quantity > 1 {
 			desc = ui.AddComma(see, desc)
@@ -693,57 +695,57 @@ func (ui *gameui) DescribePosition(pos position, targ Targeter) {
 	case okStair:
 		if strt == WinStair {
 			desc = ui.AddComma(see, desc)
-			desc += fmt.Sprintf("glowing monolith")
+			desc += "glowing monolith"
 		} else {
 			desc = ui.AddComma(see, desc)
-			desc += fmt.Sprintf("stairs downwards")
+			desc += "stairs downwards"
 		}
 	case okStone:
 		desc = ui.AddComma(see, desc)
 		desc += fmt.Sprint(Indefinite(stn.String(), false))
-	case g.Doors[pos] || g.WrongDoor[pos]:
+	case g.Doors[p] || g.WrongDoor[p]:
 		desc = ui.AddComma(see, desc)
-		desc += fmt.Sprintf("a door")
+		desc += "a door"
 	}
-	if cld, ok := g.Clouds[pos]; ok && g.Player.LOS[pos] {
+	if cld, ok := g.Clouds[p]; ok && g.Player.LOS[p] {
 		if cld == CloudFire {
 			desc = ui.AddComma(see, desc)
-			desc += fmt.Sprintf("burning flames")
+			desc += "burning flames"
 		} else if cld == CloudNight {
 			desc = ui.AddComma(see, desc)
-			desc += fmt.Sprintf("night clouds")
+			desc += "night clouds"
 		} else {
 			desc = ui.AddComma(see, desc)
-			desc += fmt.Sprintf("a dense fog")
+			desc += "a dense fog"
 		}
-	} else if _, ok := g.Fungus[pos]; ok && !g.WrongFoliage[pos] || !ok && g.WrongFoliage[pos] {
+	} else if _, ok := g.Fungus[p]; ok && !g.WrongFoliage[p] || !ok && g.WrongFoliage[p] {
 		desc = ui.AddComma(see, desc)
-		desc += fmt.Sprintf("foliage")
+		desc += "foliage"
 	} else if desc == "" {
 		desc = ui.AddComma(see, desc)
-		desc += fmt.Sprintf("the ground")
+		desc += "the ground"
 	}
 	g.InfoEntry = desc + "."
 }
 
-func (ui *gameui) ViewPositionDescription(pos position) {
+func (ui *gameui) ViewPositionDescription(p gruid.Point) {
 	g := ui.g
-	if !g.Dungeon.Cell(pos).Explored {
+	if !g.Dungeon.Cell(p).Explored {
 		ui.DrawDescription("This place is unknown to you.")
 		return
 	}
-	mons := g.MonsterAt(pos)
-	if mons.Exists() && g.Player.LOS[mons.Pos] {
+	mons := g.MonsterAt(p)
+	if mons.Exists() && g.Player.LOS[mons.P] {
 		ui.HideCursor()
 		ui.DrawMonsterDescription(mons)
-		ui.SetCursor(pos)
-	} else if c, ok := g.Collectables[pos]; ok {
+		ui.SetCursor(p)
+	} else if c, ok := g.Collectables[p]; ok {
 		ui.DrawDescription(c.Consumable.Desc())
-	} else if r, ok := g.Rods[pos]; ok {
+	} else if r, ok := g.Rods[p]; ok {
 		ui.DrawDescription(r.Desc())
-	} else if eq, ok := g.Equipables[pos]; ok {
+	} else if eq, ok := g.Equipables[p]; ok {
 		ui.DrawDescription(eq.Desc())
-	} else if strt, ok := g.Stairs[pos]; ok {
+	} else if strt, ok := g.Stairs[p]; ok {
 		if strt == WinStair {
 			desc := "This magical monolith will teleport you back to your village. It is said such monoliths were made some centuries ago by Marevor Helith. You can use it like stairs."
 			if g.Depth < MaxDepth {
@@ -757,15 +759,15 @@ func (ui *gameui) ViewPositionDescription(pos position) {
 			}
 			ui.DrawDescription(desc)
 		}
-	} else if stn, ok := g.MagicalStones[pos]; ok {
+	} else if stn, ok := g.MagicalStones[p]; ok {
 		ui.DrawDescription(stn.Description())
-	} else if g.Doors[pos] {
+	} else if g.Doors[p] {
 		ui.DrawDescription("A closed door blocks your line of sight. Doors open automatically when you or a monster stand on them. Doors are flammable.")
-	} else if g.Simellas[pos] > 0 {
+	} else if g.Simellas[p] > 0 {
 		ui.DrawDescription("A simella is a plant with big white flowers which are used in the Underground for their medicinal properties. They can also make tasty infusions. You were actually sent here by your village to collect as many as possible of those plants.")
-	} else if _, ok := g.Fungus[pos]; ok && g.Dungeon.Cell(pos).T == FreeCell {
+	} else if _, ok := g.Fungus[p]; ok && g.Dungeon.Cell(p).T == FreeCell {
 		ui.DrawDescription("Blue dense foliage grows in the Underground. It is difficult to see through, and is flammable.")
-	} else if g.Dungeon.Cell(pos).T == WallCell {
+	} else if g.Dungeon.Cell(p).T == WallCell {
 		ui.DrawDescription("A wall is an impassable pile of rocks. It can be destructed by using some items.")
 	} else {
 		ui.DrawDescription("This is just plain ground.")
@@ -792,50 +794,50 @@ func (ui *gameui) MonsterInfo(m *monster) string {
 
 var CenteredCamera bool
 
-func (ui *gameui) InView(pos position, targeting bool) bool {
+func (ui *gameui) InView(p gruid.Point, targeting bool) bool {
 	g := ui.g
 	if targeting {
-		return pos.DistanceY(ui.cursor) <= 10 && pos.DistanceX(ui.cursor) <= 39
+		return DistanceY(p, ui.cursor) <= 10 && DistanceX(p, ui.cursor) <= 39
 	}
-	return pos.DistanceY(g.Player.Pos) <= 10 && pos.DistanceX(g.Player.Pos) <= 39
+	return DistanceY(p, g.Player.P) <= 10 && DistanceX(p, g.Player.P) <= 39
 }
 
-func (ui *gameui) CameraOffset(pos position, targeting bool) (int, int) {
+func (ui *gameui) CameraOffset(p gruid.Point, targeting bool) (int, int) {
 	g := ui.g
 	if targeting {
-		return pos.X + 39 - ui.cursor.X, pos.Y + 10 - ui.cursor.Y
+		return p.X + 39 - ui.cursor.X, p.Y + 10 - ui.cursor.Y
 	}
-	return pos.X + 39 - g.Player.Pos.X, pos.Y + 10 - g.Player.Pos.Y
+	return p.X + 39 - g.Player.P.X, p.Y + 10 - g.Player.P.Y
 }
 
-func (ui *gameui) InViewBorder(pos position, targeting bool) bool {
+func (ui *gameui) InViewBorder(p gruid.Point, targeting bool) bool {
 	g := ui.g
 	if targeting {
-		return pos.DistanceY(ui.cursor) != 10 && pos.DistanceX(ui.cursor) != 39
+		return DistanceY(p, ui.cursor) != 10 && DistanceX(p, ui.cursor) != 39
 	}
-	return pos.DistanceY(g.Player.Pos) != 10 && pos.DistanceX(g.Player.Pos) != 39
+	return DistanceY(p, g.Player.P) != 10 && DistanceX(p, g.Player.P) != 39
 }
 
-func (ui *gameui) DrawAtPosition(pos position, targeting bool, r rune, fg, bg uicolor) {
+func (ui *gameui) DrawAtPosition(p gruid.Point, targeting bool, r rune, fg, bg uicolor) {
 	g := ui.g
-	if g.Highlight[pos] || pos == ui.cursor {
+	if g.Highlight[p] || p == ui.cursor {
 		bg, fg = fg, bg
 	}
 	if CenteredCamera {
-		if !ui.InView(pos, targeting) {
+		if !ui.InView(p, targeting) {
 			return
 		}
-		x, y := ui.CameraOffset(pos, targeting)
+		x, y := ui.CameraOffset(p, targeting)
 		ui.SetMapCell(x, y, r, fg, bg)
-		if ui.InViewBorder(pos, targeting) && g.Dungeon.Border(pos) {
-			for _, opos := range pos.OutsideNeighbors() {
+		if ui.InViewBorder(p, targeting) && g.Dungeon.Border(p) {
+			for _, opos := range OutsideNeighbors(p) {
 				xo, yo := ui.CameraOffset(opos, targeting)
 				ui.SetMapCell(xo, yo, '#', ColorFg, ColorBgBorder)
 			}
 		}
 		return
 	}
-	ui.SetMapCell(pos.X, pos.Y, r, fg, bg)
+	ui.SetMapCell(p.X, p.Y, r, fg, bg)
 }
 
 const BarCol = DungeonWidth + 2
@@ -852,9 +854,9 @@ func (ui *gameui) DrawDungeonView(m uiMode) {
 	}
 	ui.SetCell(DungeonWidth, DungeonHeight, '┘', ColorFg, ColorBg)
 	for i := range d.Cells {
-		pos := idxtopos(i)
-		r, fgColor, bgColor := ui.PositionDrawing(pos)
-		ui.DrawAtPosition(pos, m == TargetingMode, r, fgColor, bgColor)
+		p := idx2Point(i)
+		r, fgColor, bgColor := ui.PositionDrawing(p)
+		ui.DrawAtPosition(p, m == TargetingMode, r, fgColor, bgColor)
 	}
 	line := 0
 	if !ui.Small() {
@@ -892,68 +894,68 @@ func (ui *gameui) DrawDungeonView(m uiMode) {
 	}
 }
 
-func (ui *gameui) PositionDrawing(pos position) (r rune, fgColor, bgColor uicolor) {
+func (ui *gameui) PositionDrawing(p gruid.Point) (r rune, fgColor, bgColor uicolor) {
 	g := ui.g
 	m := g.Dungeon
-	c := m.Cell(pos)
+	c := m.Cell(p)
 	fgColor = ColorFg
 	bgColor = ColorBg
 	if !c.Explored && !g.Wizard {
 		r = ' '
 		bgColor = ColorBgDark
-		if g.HasFreeExploredNeighbor(pos) {
+		if g.HasFreeExploredNeighbor(p) {
 			r = '¤'
 			fgColor = ColorFgDark
 		}
-		if g.DreamingMonster[pos] {
+		if g.DreamingMonster[p] {
 			r = '☻'
 			fgColor = ColorFgSleepingMonster
 		}
-		if g.Noise[pos] {
+		if g.Noise[p] {
 			r = '♫'
 			fgColor = ColorFgWanderingMonster
 		}
 		return
 	}
 	if g.Wizard {
-		if !c.Explored && g.HasFreeExploredNeighbor(pos) && !g.WizardMap {
+		if !c.Explored && g.HasFreeExploredNeighbor(p) && !g.WizardMap {
 			r = '¤'
 			fgColor = ColorFgDark
 			bgColor = ColorBgDark
 			return
 		}
 		if c.T == WallCell {
-			if len(g.Dungeon.FreeNeighbors(pos)) == 0 {
+			if len(g.Dungeon.FreeNeighbors(p)) == 0 {
 				r = ' '
 				return
 			}
 		}
 	}
-	if g.Player.LOS[pos] && !g.WizardMap {
+	if g.Player.LOS[p] && !g.WizardMap {
 		fgColor = ColorFgLOS
 		bgColor = ColorBgLOS
 	} else {
 		fgColor = ColorFgDark
 		bgColor = ColorBgDark
 	}
-	if g.ExclusionsMap[pos] && c.T != WallCell {
+	if g.ExclusionsMap[p] && c.T != WallCell {
 		fgColor = ColorFgExcluded
 	}
 	switch {
-	case c.T == WallCell && (!g.WrongWall[pos] || g.Wizard) || c.T == FreeCell && g.WrongWall[pos] && !g.Wizard:
+	case c.T == WallCell && (!g.WrongWall[p] || g.Wizard) || c.T == FreeCell && g.WrongWall[p] && !g.Wizard:
 		r = '#'
-		if g.TemporalWalls[pos] {
+		if g.TemporalWalls[p] {
 			fgColor = ColorFgMagicPlace
 		}
-	case pos == g.Player.Pos && !g.WizardMap:
+	case p == g.Player.P && !g.WizardMap:
 		r = '@'
 		fgColor = ColorFgPlayer
 	default:
 		r = '.'
-		if _, ok := g.Fungus[pos]; ok && !g.WrongFoliage[pos] || !ok && g.WrongFoliage[pos] {
+		if _, ok := g.Fungus[p]; ok && !g.WrongFoliage[p] || !ok && g.WrongFoliage[p] {
 			r = '"'
 		}
-		if cld, ok := g.Clouds[pos]; ok && g.Player.LOS[pos] {
+		if cld, ok := g.Clouds[p]; ok && g.Player.LOS[p] {
 			r = '§'
 			if cld == CloudFire {
 				fgColor = ColorFgWanderingMonster
@@ -961,16 +963,16 @@ func (ui *gameui) PositionDrawing(pos position) (r rune, fgColor, bgColor uicolo
 				fgColor = ColorFgSleepingMonster
 			}
 		}
-		if c, ok := g.Collectables[pos]; ok {
+		if c, ok := g.Collectables[p]; ok {
 			r = c.Consumable.Letter()
 			fgColor = ColorFgCollectable
-		} else if eq, ok := g.Equipables[pos]; ok {
+		} else if eq, ok := g.Equipables[p]; ok {
 			r = eq.Letter()
 			fgColor = ColorFgCollectable
-		} else if rod, ok := g.Rods[pos]; ok {
+		} else if rod, ok := g.Rods[p]; ok {
 			r = rod.Letter()
 			fgColor = ColorFgCollectable
-		} else if strt, ok := g.Stairs[pos]; ok {
+		} else if strt, ok := g.Stairs[p]; ok {
 			r = '>'
 			if strt == WinStair {
 				fgColor = ColorFgMagicPlace
@@ -978,22 +980,22 @@ func (ui *gameui) PositionDrawing(pos position) (r rune, fgColor, bgColor uicolo
 			} else {
 				fgColor = ColorFgPlace
 			}
-		} else if stn, ok := g.MagicalStones[pos]; ok {
+		} else if stn, ok := g.MagicalStones[p]; ok {
 			r = '_'
 			if stn == InertStone {
 				fgColor = ColorFgPlace
 			} else {
 				fgColor = ColorFgMagicPlace
 			}
-		} else if _, ok := g.Simellas[pos]; ok {
+		} else if _, ok := g.Simellas[p]; ok {
 			r = '♣'
 			fgColor = ColorFgSimellas
-		} else if _, ok := g.Doors[pos]; ok {
+		} else if _, ok := g.Doors[p]; ok {
 			r = '+'
 			fgColor = ColorFgPlace
 		}
-		if (g.Player.LOS[pos] || g.Wizard) && !g.WizardMap {
-			m := g.MonsterAt(pos)
+		if (g.Player.LOS[p] || g.Wizard) && !g.WizardMap {
+			m := g.MonsterAt(p)
 			if m.Exists() {
 				r = m.Kind.Letter()
 				if m.Status(MonsLignified) {
@@ -1010,10 +1012,10 @@ func (ui *gameui) PositionDrawing(pos position) (r rune, fgColor, bgColor uicolo
 					fgColor = ColorFgMonster
 				}
 			}
-		} else if !g.Wizard && g.Noise[pos] {
+		} else if !g.Wizard && g.Noise[p] {
 			r = '♫'
 			fgColor = ColorFgWanderingMonster
-		} else if !g.Wizard && g.DreamingMonster[pos] {
+		} else if !g.Wizard && g.DreamingMonster[p] {
 			r = '☻'
 			fgColor = ColorFgSleepingMonster
 		}
@@ -1024,7 +1026,7 @@ func (ui *gameui) PositionDrawing(pos position) (r rune, fgColor, bgColor uicolo
 func (ui *gameui) DrawStatusBar(line int) {
 	g := ui.g
 	sts := statusSlice{}
-	if cld, ok := g.Clouds[g.Player.Pos]; ok && cld == CloudFire {
+	if cld, ok := g.Clouds[g.Player.P]; ok && cld == CloudFire {
 		g.Player.Statuses[StatusFlames] = 1
 		defer func() {
 			g.Player.Statuses[StatusFlames] = 0
@@ -1094,7 +1096,7 @@ func (ui *gameui) DrawStatusBar(line int) {
 func (ui *gameui) DrawStatusLine() {
 	g := ui.g
 	sts := statusSlice{}
-	if cld, ok := g.Clouds[g.Player.Pos]; ok && cld == CloudFire {
+	if cld, ok := g.Clouds[g.Player.P]; ok && cld == CloudFire {
 		g.Player.Statuses[StatusFlames] = 1
 		defer func() {
 			g.Player.Statuses[StatusFlames] = 0

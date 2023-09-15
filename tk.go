@@ -11,17 +11,18 @@ import (
 	"unicode/utf8"
 
 	"codeberg.org/anaseto/gothic"
+	"codeberg.org/anaseto/gruid"
 )
 
 type gameui struct {
 	g         *game
 	ir        *gothic.Interpreter
-	cursor    position
+	cursor    gruid.Point
 	stty      string
 	cache     map[UICell]*image.RGBA
 	width     int
 	height    int
-	mousepos  position
+	mousepos  gruid.Point
 	menuHover menu
 	itemHover int
 	canvas    *image.RGBA

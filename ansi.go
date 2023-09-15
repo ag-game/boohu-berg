@@ -22,7 +22,7 @@ type gameui struct {
 	g       *game
 	bStdin  *bufio.Reader
 	bStdout *bufio.Writer
-	cursor  position
+	cursor  gruid.Point
 	stty    string
 	// below unused for this backend
 	menuHover menu

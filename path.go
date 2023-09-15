@@ -1,9 +1,10 @@
 package main
 
 import (
+	"sort"
+
 	"codeberg.org/anaseto/gruid"
 	"codeberg.org/anaseto/gruid/paths"
-	"sort"
 )
 
 const unreachable = 9999
@@ -23,7 +24,7 @@ func (dp *dungeonPath) Neighbors(p gruid.Point) []gruid.Point {
 }
 
 func (dp *dungeonPath) Cost(from, to gruid.Point) int {
-	if dp.dungeon.Cell(point2Pos(to)).T == WallCell {
+	if dp.dungeon.Cell(to).T == WallCell {
 		if dp.wcost > 0 {
 			return dp.wcost
 		}
@@ -44,12 +45,11 @@ type playerPath struct {
 func (pp *playerPath) Neighbors(p gruid.Point) []gruid.Point {
 	d := pp.game.Dungeon
 	keep := func(np gruid.Point) bool {
-		npos := point2Pos(np)
-		if cld, ok := pp.game.Clouds[npos]; ok && cld == CloudFire && !(pp.game.WrongDoor[npos] || pp.game.WrongFoliage[npos]) {
+		if cld, ok := pp.game.Clouds[np]; ok && cld == CloudFire && !(pp.game.WrongDoor[np] || pp.game.WrongFoliage[np]) {
 			return false
 		}
-		return npos.valid() && ((d.Cell(npos).T == FreeCell && !pp.game.WrongWall[npos] || d.Cell(npos).T == WallCell && pp.game.WrongWall[npos]) || pp.game.Player.HasStatus(StatusDig)) &&
-			d.Cell(npos).Explored
+		return valid(np) && ((d.Cell(np).T == FreeCell && !pp.game.WrongWall[np] || d.Cell(np).T == WallCell && pp.game.WrongWall[np]) || pp.game.Player.HasStatus(StatusDig)) &&
+			d.Cell(np).Explored
 	}
 	if pp.game.Player.HasStatus(StatusConfusion) {
 		return pp.nbs.Cardinal(p, keep)
@@ -58,7 +58,7 @@ func (pp *playerPath) Neighbors(p gruid.Point) []gruid.Point {
 }
 
 func (pp *playerPath) Cost(from, to gruid.Point) int {
-	if !pp.game.ExclusionsMap[point2Pos(from)] && pp.game.ExclusionsMap[point2Pos(to)] {
+	if !pp.game.ExclusionsMap[from] && pp.game.ExclusionsMap[to] {
 		return unreachable
 	}
 	return 1
@@ -76,8 +76,7 @@ type noisePath struct {
 func (fp *noisePath) Neighbors(p gruid.Point) []gruid.Point {
 	d := fp.game.Dungeon
 	keep := func(np gruid.Point) bool {
-		npos := point2Pos(np)
-		return npos.valid() && d.Cell(npos).T != WallCell
+		return valid(np) && d.Cell(np).T != WallCell
 	}
 	return fp.nbs.All(p, keep)
 }
@@ -94,8 +93,7 @@ type normalPath struct {
 func (np *normalPath) Neighbors(p gruid.Point) []gruid.Point {
 	d := np.game.Dungeon
 	keep := func(np gruid.Point) bool {
-		npos := point2Pos(np)
-		return npos.valid() && d.Cell(npos).T != WallCell
+		return valid(np) && d.Cell(np).T != WallCell
 	}
 	if np.game.Player.HasStatus(StatusConfusion) {
 		return np.nbs.Cardinal(p, keep)
@@ -113,19 +111,17 @@ type autoexplorePath struct {
 }
 
 func (ap *autoexplorePath) Neighbors(p gruid.Point) []gruid.Point {
-	pos := point2Pos(p)
-	if ap.game.ExclusionsMap[pos] {
+	if ap.game.ExclusionsMap[p] {
 		return nil
 	}
 	d := ap.game.Dungeon
 	keep := func(np gruid.Point) bool {
-		npos := point2Pos(np)
-		if cld, ok := ap.game.Clouds[npos]; ok && cld == CloudFire && !(ap.game.WrongDoor[npos] || ap.game.WrongFoliage[npos]) {
+		if cld, ok := ap.game.Clouds[np]; ok && cld == CloudFire && !(ap.game.WrongDoor[np] || ap.game.WrongFoliage[np]) {
 			// XXX little info leak
 			return false
 		}
-		return npos.valid() && (d.Cell(npos).T == FreeCell && !ap.game.WrongWall[npos] || d.Cell(npos).T == WallCell && ap.game.WrongWall[npos]) &&
-			!ap.game.ExclusionsMap[npos]
+		return valid(np) && (d.Cell(np).T == FreeCell && !ap.game.WrongWall[np] || d.Cell(np).T == WallCell && ap.game.WrongWall[np]) &&
+			!ap.game.ExclusionsMap[np]
 	}
 	if ap.game.Player.HasStatus(StatusConfusion) {
 		return ap.nbs.Cardinal(p, keep)
@@ -147,8 +143,7 @@ type monPath struct {
 func (mp *monPath) Neighbors(p gruid.Point) []gruid.Point {
 	d := mp.game.Dungeon
 	keep := func(np gruid.Point) bool {
-		npos := point2Pos(np)
-		return npos.valid() && (d.Cell(npos).T != WallCell || mp.wall)
+		return valid(np) && (d.Cell(np).T != WallCell || mp.wall)
 	}
 	if mp.monster.Status(MonsConfused) {
 		return mp.nbs.Cardinal(p, keep)
@@ -158,9 +153,9 @@ func (mp *monPath) Neighbors(p gruid.Point) []gruid.Point {
 
 func (mp *monPath) Cost(from, to gruid.Point) int {
 	g := mp.game
-	mons := g.MonsterAt(point2Pos(to))
+	mons := g.MonsterAt(to)
 	if !mons.Exists() {
-		if mp.wall && g.Dungeon.Cell(point2Pos(to)).T == WallCell && mp.monster.State != Hunting {
+		if mp.wall && g.Dungeon.Cell(to).T == WallCell && mp.monster.State != Hunting {
 			return 6
 		}
 		return 1
@@ -175,46 +170,46 @@ func (mp *monPath) Estimation(from, to gruid.Point) int {
 	return paths.DistanceChebyshev(from, to)
 }
 
-func (m *monster) APath(g *game, from, to position) []position {
+func (m *monster) APath(g *game, from, to gruid.Point) []gruid.Point {
 	mp := &monPath{game: g, monster: m}
 	if m.Kind == MonsEarthDragon {
 		mp.wall = true
 	}
-	path := points2Pos(g.PR.AstarPath(mp, pos2Point(from), pos2Point(to)))
+	path := g.PR.AstarPath(mp, from, to)
 	if len(path) == 0 {
 		return nil
 	}
 	return path
 }
 
-func (g *game) PlayerPath(from, to position) []position {
+func (g *game) PlayerPath(from, to gruid.Point) []gruid.Point {
 	pp := &playerPath{game: g}
-	path := points2Pos(g.PR.AstarPath(pp, pos2Point(from), pos2Point(to)))
+	path := g.PR.AstarPath(pp, from, to)
 	if len(path) == 0 {
 		return nil
 	}
 	return path
 }
 
-func (g *game) SortedNearestTo(cells []position, to position) []position {
+func (g *game) SortedNearestTo(cells []gruid.Point, to gruid.Point) []gruid.Point {
 	ps := posSlice{}
 	for _, p := range cells {
 		pp := &dungeonPath{dungeon: g.Dungeon, wcost: unreachable}
-		path := points2Pos(g.PR.AstarPath(pp, pos2Point(p), pos2Point(to)))
+		path := g.PR.AstarPath(pp, p, to)
 		if len(path) > 0 {
 			ps = append(ps, posCost{p, len(path)})
 		}
 	}
 	sort.Sort(ps)
-	sorted := []position{}
+	sorted := []gruid.Point{}
 	for _, pc := range ps {
-		sorted = append(sorted, pc.pos)
+		sorted = append(sorted, pc.p)
 	}
 	return sorted
 }
 
 type posCost struct {
-	pos  position
+	p    gruid.Point
 	cost int
 }
 

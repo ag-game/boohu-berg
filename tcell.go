@@ -5,14 +5,14 @@ package main
 import (
 	"runtime"
 
+	"codeberg.org/anaseto/gruid"
 	"github.com/gdamore/tcell/v2"
 )
 
 type gameui struct {
 	g *game
 	tcell.Screen
-	cursor position
-	small  bool
+	cursor gruid.Point
 	// below unused for this backend
 	menuHover menu
 	itemHover int

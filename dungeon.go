@@ -3,9 +3,10 @@
 package main
 
 import (
+	"sort"
+
 	"codeberg.org/anaseto/gruid"
 	"codeberg.org/anaseto/gruid/paths"
-	"sort"
 )
 
 type dungeon struct {
@@ -93,29 +94,29 @@ func (dg dungen) Description() (text string) {
 }
 
 type room struct {
-	pos position
-	w   int
-	h   int
+	p gruid.Point
+	w int
+	h int
 }
 
-func (d *dungeon) Cell(pos position) cell {
-	return d.Cells[pos.idx()]
+func (d *dungeon) Cell(p gruid.Point) cell {
+	return d.Cells[idx(p)]
 }
 
-func (d *dungeon) Border(pos position) bool {
-	return pos.X == DungeonWidth-1 || pos.Y == DungeonHeight-1 || pos.X == 0 || pos.Y == 0
+func (d *dungeon) Border(p gruid.Point) bool {
+	return p.X == DungeonWidth-1 || p.Y == DungeonHeight-1 || p.X == 0 || p.Y == 0
 }
 
-func (d *dungeon) SetCell(pos position, t terrain) {
-	d.Cells[pos.idx()].T = t
+func (d *dungeon) SetCell(p gruid.Point, t terrain) {
+	d.Cells[idx(p)].T = t
 }
 
-func (d *dungeon) SetExplored(pos position) {
-	d.Cells[pos.idx()].Explored = true
+func (d *dungeon) SetExplored(p gruid.Point) {
+	d.Cells[idx(p)].Explored = true
 }
 
 func roomDistance(r1, r2 room) int {
-	return Abs(r1.pos.X-r2.pos.X) + Abs(r1.pos.Y-r2.pos.Y)
+	return Abs(r1.p.X-r2.p.X) + Abs(r1.p.Y-r2.p.Y)
 }
 
 func nearRoom(rooms []room, r room) room {
@@ -152,8 +153,8 @@ func nearestRoom(rooms []room, r room) room {
 
 func intersectsRoom(rooms []room, r room) bool {
 	for _, rr := range rooms {
-		if (r.pos.X+r.w-1 >= rr.pos.X && rr.pos.X+rr.w-1 >= r.pos.X) &&
-			(r.pos.Y+r.h-1 >= rr.pos.Y && rr.pos.Y+rr.h-1 >= r.pos.Y) {
+		if (r.p.X+r.w-1 >= rr.p.X && rr.p.X+rr.w-1 >= r.p.X) &&
+			(r.p.Y+r.h-1 >= rr.p.Y && rr.p.Y+rr.h-1 >= r.p.Y) {
 			return true
 		}
 	}
@@ -161,122 +162,122 @@ func intersectsRoom(rooms []room, r room) bool {
 }
 
 func (d *dungeon) connectRooms(r1, r2 room) {
-	x := r1.pos.X
-	if x < r2.pos.X {
+	x := r1.p.X
+	if x < r2.p.X {
 		x += r1.w - 1
 	}
-	y := r1.pos.Y
-	if y < r2.pos.Y {
+	y := r1.p.Y
+	if y < r2.p.Y {
 		y += r1.h - 1
 	}
-	d.SetCell(position{x, y}, FreeCell)
+	d.SetCell(gruid.Point{x, y}, FreeCell)
 	count := 0
 	for {
 		count++
 		if count > 1000 {
 			panic("ConnectRooms")
 		}
-		if x < r2.pos.X {
+		if x < r2.p.X {
 			x++
-			d.SetCell(position{x, y}, FreeCell)
+			d.SetCell(gruid.Point{x, y}, FreeCell)
 			continue
 		}
-		if x > r2.pos.X {
+		if x > r2.p.X {
 			x--
-			d.SetCell(position{x, y}, FreeCell)
+			d.SetCell(gruid.Point{x, y}, FreeCell)
 			continue
 		}
-		if y < r2.pos.Y {
+		if y < r2.p.Y {
 			y++
-			d.SetCell(position{x, y}, FreeCell)
+			d.SetCell(gruid.Point{x, y}, FreeCell)
 			continue
 		}
-		if y > r2.pos.Y {
+		if y > r2.p.Y {
 			y--
-			d.SetCell(position{x, y}, FreeCell)
+			d.SetCell(gruid.Point{x, y}, FreeCell)
 			continue
 		}
 		break
 	}
-	d.SetCell(r2.pos, FreeCell)
+	d.SetCell(r2.p, FreeCell)
 }
 
 func (d *dungeon) connectRoomsDiagonally(r1, r2 room) {
-	x := r1.pos.X
-	if x < r2.pos.X {
+	x := r1.p.X
+	if x < r2.p.X {
 		x += r1.w - 1
 	}
-	y := r1.pos.Y
-	if y < r2.pos.Y {
+	y := r1.p.Y
+	if y < r2.p.Y {
 		y += r1.h - 1
 	}
-	d.SetCell(position{x, y}, FreeCell)
+	d.SetCell(gruid.Point{x, y}, FreeCell)
 	count := 0
 	for {
 		count++
 		if count > 1000 {
 			panic("ConnectRooms")
 		}
-		if x < r2.pos.X && y < r2.pos.Y {
+		if x < r2.p.X && y < r2.p.Y {
 			x++
-			d.SetCell(position{x, y}, FreeCell)
+			d.SetCell(gruid.Point{x, y}, FreeCell)
 			y++
-			d.SetCell(position{x, y}, FreeCell)
+			d.SetCell(gruid.Point{x, y}, FreeCell)
 			continue
 		}
-		if x > r2.pos.X && y < r2.pos.Y {
+		if x > r2.p.X && y < r2.p.Y {
 			x--
-			d.SetCell(position{x, y}, FreeCell)
+			d.SetCell(gruid.Point{x, y}, FreeCell)
 			y++
-			d.SetCell(position{x, y}, FreeCell)
+			d.SetCell(gruid.Point{x, y}, FreeCell)
 			continue
 		}
-		if x > r2.pos.X && y > r2.pos.Y {
+		if x > r2.p.X && y > r2.p.Y {
 			x--
-			d.SetCell(position{x, y}, FreeCell)
+			d.SetCell(gruid.Point{x, y}, FreeCell)
 			y--
-			d.SetCell(position{x, y}, FreeCell)
+			d.SetCell(gruid.Point{x, y}, FreeCell)
 			continue
 		}
-		if x < r2.pos.X && y > r2.pos.Y {
+		if x < r2.p.X && y > r2.p.Y {
 			x++
-			d.SetCell(position{x, y}, FreeCell)
+			d.SetCell(gruid.Point{x, y}, FreeCell)
 			y--
-			d.SetCell(position{x, y}, FreeCell)
+			d.SetCell(gruid.Point{x, y}, FreeCell)
 			continue
 		}
-		if x < r2.pos.X {
+		if x < r2.p.X {
 			x++
-			d.SetCell(position{x, y}, FreeCell)
+			d.SetCell(gruid.Point{x, y}, FreeCell)
 			continue
 		}
-		if x > r2.pos.X {
+		if x > r2.p.X {
 			x--
-			d.SetCell(position{x, y}, FreeCell)
+			d.SetCell(gruid.Point{x, y}, FreeCell)
 			continue
 		}
-		if y < r2.pos.Y {
+		if y < r2.p.Y {
 			y++
-			d.SetCell(position{x, y}, FreeCell)
+			d.SetCell(gruid.Point{x, y}, FreeCell)
 			continue
 		}
-		if y > r2.pos.Y {
+		if y > r2.p.Y {
 			y--
-			d.SetCell(position{x, y}, FreeCell)
+			d.SetCell(gruid.Point{x, y}, FreeCell)
 			continue
 		}
 		break
 	}
-	d.SetCell(r2.pos, FreeCell)
+	d.SetCell(r2.p, FreeCell)
 }
 
-func (d *dungeon) Area(area []position, pos position, radius int) []position {
+func (d *dungeon) Area(area []gruid.Point, p gruid.Point, radius int) []gruid.Point {
 	area = area[:0]
-	for x := pos.X - radius; x <= pos.X+radius; x++ {
-		for y := pos.Y - radius; y <= pos.Y+radius; y++ {
-			pos := position{x, y}
-			if pos.valid() {
-				area = append(area, pos)
+	for x := p.X - radius; x <= p.X+radius; x++ {
+		for y := p.Y - radius; y <= p.Y+radius; y++ {
+			q := gruid.Point{x, y}
+			if valid(q) {
+				area = append(area, q)
 			}
 		}
 	}
@@ -284,38 +285,38 @@ func (d *dungeon) Area(area []position, pos position, radius int) []position {
 }
 
 func (d *dungeon) ConnectRoomsShortestPath(r1, r2 room) {
-	var r1pos, r2pos position
-	r1pos.X = r1.pos.X + RandInt(r1.w)
-	if r1pos.X < r2.pos.X {
-		r1pos.X = r1.pos.X + r1.w - 1
+	var r1pos, r2pos gruid.Point
+	r1pos.X = r1.p.X + RandInt(r1.w)
+	if r1pos.X < r2.p.X {
+		r1pos.X = r1.p.X + r1.w - 1
 	}
-	r1pos.Y = r1.pos.Y + RandInt(r1.h)
-	if r1pos.Y < r2.pos.Y {
-		r1pos.Y = r1.pos.Y + r1.h - 1
+	r1pos.Y = r1.p.Y + RandInt(r1.h)
+	if r1pos.Y < r2.p.Y {
+		r1pos.Y = r1.p.Y + r1.h - 1
 	}
-	r2pos.X = r2.pos.X + RandInt(r2.w)
-	if r2pos.X < r1.pos.X {
-		r2pos.X = r2.pos.X + r2.w - 1
+	r2pos.X = r2.p.X + RandInt(r2.w)
+	if r2pos.X < r1.p.X {
+		r2pos.X = r2.p.X + r2.w - 1
 	}
-	r2pos.Y = r2.pos.Y + RandInt(r2.h)
-	if r2pos.Y < r1.pos.Y {
-		r2pos.Y = r2.pos.Y + r2.h - 1
+	r2pos.Y = r2.p.Y + RandInt(r2.h)
+	if r2pos.Y < r1.p.Y {
+		r2pos.Y = r2.p.Y + r2.h - 1
 	}
 	mp := &dungeonPath{dungeon: d}
-	path := d.PR.AstarPath(mp, pos2Point(r1pos), pos2Point(r2pos))
+	path := d.PR.AstarPath(mp, r1pos, r2pos)
 	for _, p := range path {
-		d.SetCell(point2Pos(p), FreeCell)
+		d.SetCell(p, FreeCell)
 	}
 }
 
-func (d *dungeon) ConnectIsolatedRoom(doorpos position) {
+func (d *dungeon) ConnectIsolatedRoom(doorpos gruid.Point) {
 	for i := 0; i < 200; i++ {
-		pos := d.FreeCell()
+		p := d.FreeCell()
 		dp := &dungeonPath{dungeon: d, wcost: unreachable}
-		path := d.PR.AstarPath(dp, pos2Point(pos), pos2Point(doorpos))
+		path := d.PR.AstarPath(dp, p, doorpos)
 		wall := false
 		for _, p := range path {
-			if d.Cell(point2Pos(p)).T == WallCell {
+			if d.Cell(p).T == WallCell {
 				wall = true
 				break
 			}
@@ -324,17 +325,17 @@ func (d *dungeon) ConnectIsolatedRoom(doorpos position) {
 			continue
 		}
 		for _, p := range path {
-			d.SetCell(point2Pos(p), FreeCell)
+			d.SetCell(p, FreeCell)
 		}
 		break
 	}
 }
 
 func (d *dungeon) DigRoom(r room) {
-	for i := r.pos.X; i < r.pos.X+r.w; i++ {
-		for j := r.pos.Y; j < r.pos.Y+r.h; j++ {
-			rpos := position{i, j}
-			if rpos.valid() {
+	for i := r.p.X; i < r.p.X+r.w; i++ {
+		for j := r.p.Y; j < r.p.Y+r.h; j++ {
+			rpos := gruid.Point{i, j}
+			if valid(rpos) {
 				d.SetCell(rpos, FreeCell)
 			}
 		}
@@ -342,10 +343,10 @@ func (d *dungeon) DigRoom(r room) {
 }
 
 func (d *dungeon) PutCols(r room) {
-	for i := r.pos.X + 1; i < r.pos.X+r.w-1; i += 2 {
-		for j := r.pos.Y + 1; j < r.pos.Y+r.h-1; j += 2 {
-			rpos := position{i, j}
-			if rpos.valid() {
+	for i := r.p.X + 1; i < r.p.X+r.w-1; i += 2 {
+		for j := r.p.Y + 1; j < r.p.Y+r.h-1; j += 2 {
+			rpos := gruid.Point{i, j}
+			if valid(rpos) {
 				d.SetCell(rpos, WallCell)
 			}
 		}
@@ -354,11 +355,11 @@ func (d *dungeon) PutCols(r room) {
 
 func (d *dungeon) PutDiagCols(r room) {
 	n := RandInt(2)
-	for i := r.pos.X + 1; i < r.pos.X+r.w-1; i++ {
+	for i := r.p.X + 1; i < r.p.X+r.w-1; i++ {
 		m := n
-		for j := r.pos.Y + 1; j < r.pos.Y+r.h-1; j++ {
-			rpos := position{i, j}
-			if rpos.valid() && m%2 == 0 {
+		for j := r.p.Y + 1; j < r.p.Y+r.h-1; j++ {
+			rpos := gruid.Point{i, j}
+			if valid(rpos) && m%2 == 0 {
 				d.SetCell(rpos, WallCell)
 			}
 			m++
@@ -367,11 +368,11 @@ func (d *dungeon) PutDiagCols(r room) {
 	}
 }
 
-func (d *dungeon) IsAreaFree(pos position, h, w int) bool {
-	for i := pos.X; i < pos.X+w; i++ {
-		for j := pos.Y; j < pos.Y+h; j++ {
-			rpos := position{i, j}
-			if !rpos.valid() || d.Cell(rpos).T != FreeCell {
+func (d *dungeon) IsAreaFree(p gruid.Point, h, w int) bool {
+	for i := p.X; i < p.X+w; i++ {
+		for j := p.Y; j < p.Y+h; j++ {
+			rpos := gruid.Point{i, j}
+			if !valid(rpos) || d.Cell(rpos).T != FreeCell {
 				return false
 			}
 		}
@@ -379,11 +380,11 @@ func (d *dungeon) IsAreaFree(pos position, h, w int) bool {
 	return true
 }
 
-func (d *dungeon) RoomDigCanditate(pos position, h, w int) (ret bool) {
-	for i := pos.X; i < pos.X+w; i++ {
-		for j := pos.Y; j < pos.Y+h; j++ {
-			rpos := position{i, j}
-			if !rpos.valid() {
+func (d *dungeon) RoomDigCanditate(p gruid.Point, h, w int) (ret bool) {
+	for i := p.X; i < p.X+w; i++ {
+		for j := p.Y; j < p.Y+h; j++ {
+			rpos := gruid.Point{i, j}
+			if !valid(rpos) {
 				return false
 			}
 			if d.Cell(rpos).T == FreeCell {
@@ -394,11 +395,11 @@ func (d *dungeon) RoomDigCanditate(pos position, h, w int) (ret bool) {
 	return ret
 }
 
-func (d *dungeon) IsolatedRoomDigCanditate(pos position, h, w int) (ret bool) {
-	for i := pos.X; i < pos.X+w; i++ {
-		for j := pos.Y; j < pos.Y+h; j++ {
-			rpos := position{i, j}
-			if !rpos.valid() {
+func (d *dungeon) IsolatedRoomDigCanditate(p gruid.Point, h, w int) (ret bool) {
+	for i := p.X; i < p.X+w; i++ {
+		for j := p.Y; j < p.Y+h; j++ {
+			rpos := gruid.Point{i, j}
+			if !valid(rpos) {
 				return false
 			}
 			if d.Cell(rpos).T == FreeCell {
@@ -409,11 +410,11 @@ func (d *dungeon) IsolatedRoomDigCanditate(pos position, h, w int) (ret bool) {
 	return true
 }
 
-func (d *dungeon) DigArea(pos position, h, w int) {
-	for i := pos.X; i < pos.X+w; i++ {
-		for j := pos.Y; j < pos.Y+h; j++ {
-			rpos := position{i, j}
-			if !rpos.valid() {
+func (d *dungeon) DigArea(p gruid.Point, h, w int) {
+	for i := p.X; i < p.X+w; i++ {
+		for j := p.Y; j < p.Y+h; j++ {
+			rpos := gruid.Point{i, j}
+			if !valid(rpos) {
 				continue
 			}
 			d.SetCell(rpos, FreeCell)
@@ -421,12 +422,12 @@ func (d *dungeon) DigArea(pos position, h, w int) {
 	}
 }
 
-func (d *dungeon) BlockArea(pos position, h, w int) {
+func (d *dungeon) BlockArea(p gruid.Point, h, w int) {
 	// not used now
-	for i := pos.X; i < pos.X+w; i++ {
-		for j := pos.Y; j < pos.Y+h; j++ {
-			rpos := position{i, j}
-			if !rpos.valid() {
+	for i := p.X; i < p.X+w; i++ {
+		for j := p.Y; j < p.Y+h; j++ {
+			rpos := gruid.Point{i, j}
+			if !valid(rpos) {
 				continue
 			}
 			d.SetCell(rpos, WallCell)
@@ -434,26 +435,26 @@ func (d *dungeon) BlockArea(pos position, h, w int) {
 	}
 }
 
-func (d *dungeon) BuildRoom(pos position, w, h int, outside bool) map[position]bool {
-	spos := position{pos.X - 1, pos.Y - 1}
+func (d *dungeon) BuildRoom(p gruid.Point, w, h int, outside bool) map[gruid.Point]bool {
+	spos := gruid.Point{p.X - 1, p.Y - 1}
 	if outside && !d.IsAreaFree(spos, h+2, w+2) {
 		return nil
 	}
-	for i := pos.X; i < pos.X+w; i++ {
-		d.SetCell(position{i, pos.Y}, WallCell)
-		d.SetCell(position{i, pos.Y + h - 1}, WallCell)
+	for i := p.X; i < p.X+w; i++ {
+		d.SetCell(gruid.Point{i, p.Y}, WallCell)
+		d.SetCell(gruid.Point{i, p.Y + h - 1}, WallCell)
 	}
-	for i := pos.Y; i < pos.Y+h; i++ {
-		d.SetCell(position{pos.X, i}, WallCell)
-		d.SetCell(position{pos.X + w - 1, i}, WallCell)
+	for i := p.Y; i < p.Y+h; i++ {
+		d.SetCell(gruid.Point{p.X, i}, WallCell)
+		d.SetCell(gruid.Point{p.X + w - 1, i}, WallCell)
 	}
 	if RandInt(2) == 0 || !outside {
 		n := RandInt(2)
-		for x := pos.X + 1; x < pos.X+w-1; x++ {
+		for x := p.X + 1; x < p.X+w-1; x++ {
 			m := n
-			for y := pos.Y + 1; y < pos.Y+h-1; y++ {
+			for y := p.Y + 1; y < p.Y+h-1; y++ {
 				if m%2 == 0 {
-					d.SetCell(position{x, y}, WallCell)
+					d.SetCell(gruid.Point{x, y}, WallCell)
 				}
 				m++
 			}
@@ -464,33 +465,33 @@ func (d *dungeon) BuildRoom(pos position, w, h int, outside bool) map[position]b
 		m := RandInt(2)
 		//if n == 0 && m == 0 {
 		//// round room
-		//d.SetCell(pos, FreeCell)
-		//d.SetCell(position{pos.X, pos.Y + h - 1}, FreeCell)
-		//d.SetCell(position{pos.X + w - 1, pos.Y}, FreeCell)
-		//d.SetCell(position{pos.X + w - 1, pos.Y + h - 1}, FreeCell)
+		//d.SetCell(p, FreeCell)
+		//d.SetCell(position{p.X, p.Y + h - 1}, FreeCell)
+		//d.SetCell(position{p.X + w - 1, p.Y}, FreeCell)
+		//d.SetCell(position{p.X + w - 1, p.Y + h - 1}, FreeCell)
 		//}
-		for x := pos.X + 1 + m; x < pos.X+w-1; x += 2 {
-			for y := pos.Y + 1 + n; y < pos.Y+h-1; y += 2 {
-				d.SetCell(position{x, y}, WallCell)
+		for x := p.X + 1 + m; x < p.X+w-1; x += 2 {
+			for y := p.Y + 1 + n; y < p.Y+h-1; y += 2 {
+				d.SetCell(gruid.Point{x, y}, WallCell)
 			}
 		}
 
 	}
-	area := make([]position, 9)
+	area := make([]gruid.Point, 9)
 	if outside {
-		for _, p := range [4]position{pos, {pos.X, pos.Y + h - 1}, {pos.X + w - 1, pos.Y}, {pos.X + w - 1, pos.Y + h - 1}} {
+		for _, p := range [4]gruid.Point{p, {p.X, p.Y + h - 1}, {p.X + w - 1, p.Y}, {p.X + w - 1, p.Y + h - 1}} {
 			if d.WallAreaCount(area, p, 1) == 4 {
 				d.SetCell(p, FreeCell)
 			}
 		}
 	}
-	doorsc := [4]position{
-		{pos.X + w/2, pos.Y},
-		{pos.X + w/2, pos.Y + h - 1},
-		{pos.X, pos.Y + h/2},
-		{pos.X + w - 1, pos.Y + h/2},
+	doorsc := [4]gruid.Point{
+		{p.X + w/2, p.Y},
+		{p.X + w/2, p.Y + h - 1},
+		{p.X, p.Y + h/2},
+		{p.X + w - 1, p.Y + h/2},
 	}
-	doors := make(map[position]bool)
+	doors := make(map[gruid.Point]bool)
 	for i := 0; i < 3+RandInt(2); i++ {
 		dpos := doorsc[RandInt(4)]
 		doors[dpos] = true
@@ -499,10 +500,10 @@ func (d *dungeon) BuildRoom(pos position, w, h int, outside bool) map[position]b
 	return doors
 }
 
-func (d *dungeon) BuildSomeRoom(w, h int) map[position]bool {
+func (d *dungeon) BuildSomeRoom(w, h int) map[gruid.Point]bool {
 	for i := 0; i < 200; i++ {
-		pos := d.FreeCell()
-		doors := d.BuildRoom(pos, w, h, true)
+		p := d.FreeCell()
+		doors := d.BuildRoom(p, w, h, true)
 		if doors != nil {
 			return doors
 		}
@@ -510,15 +511,15 @@ func (d *dungeon) BuildSomeRoom(w, h int) map[position]bool {
 	return nil
 }
 
-func (d *dungeon) DigSomeRoom(w, h int) map[position]bool {
+func (d *dungeon) DigSomeRoom(w, h int) map[gruid.Point]bool {
 	for i := 0; i < 200; i++ {
-		pos := d.FreeCell()
-		dpos := position{pos.X - 1, pos.Y - 1}
+		p := d.FreeCell()
+		dpos := gruid.Point{p.X - 1, p.Y - 1}
 		if !d.RoomDigCanditate(dpos, h+2, w+2) {
 			continue
 		}
 		d.DigArea(dpos, h+2, w+2)
-		doors := d.BuildRoom(pos, w, h, true)
+		doors := d.BuildRoom(p, w, h, true)
 		if doors != nil {
 			return doors
 		}
@@ -526,20 +527,20 @@ func (d *dungeon) DigSomeRoom(w, h int) map[position]bool {
 	return nil
 }
 
-func (d *dungeon) DigIsolatedRoom(w, h int) map[position]bool {
+func (d *dungeon) DigIsolatedRoom(w, h int) map[gruid.Point]bool {
 	i := RandInt(DungeonNCells)
 	for j := 0; j < DungeonNCells; j++ {
 		i = (i + 1) % DungeonNCells
-		pos := idxtopos(i)
+		p := idx2Point(i)
 		if d.Cells[i].T == FreeCell {
 			continue
 		}
-		dpos := position{pos.X - 1, pos.Y - 1}
+		dpos := gruid.Point{p.X - 1, p.Y - 1}
 		if !d.IsolatedRoomDigCanditate(dpos, h+2, w+2) {
 			continue
 		}
-		d.DigArea(pos, h, w)
-		doors := d.BuildRoom(pos, w, h, false)
+		d.DigArea(p, h, w)
+		doors := d.BuildRoom(p, w, h, false)
 		if doors != nil {
 			return doors
 		}
@@ -548,11 +549,11 @@ func (d *dungeon) DigIsolatedRoom(w, h int) map[position]bool {
 }
 
 func (d *dungeon) ResizeRoom(r room) room {
-	if DungeonWidth-r.pos.X < r.w {
-		r.w = DungeonWidth - r.pos.X
+	if DungeonWidth-r.p.X < r.w {
+		r.w = DungeonWidth - r.p.X
 	}
-	if DungeonHeight-r.pos.Y < r.h {
-		r.h = DungeonHeight - r.pos.Y
+	if DungeonHeight-r.p.Y < r.h {
+		r.h = DungeonHeight - r.p.Y
 	}
 	return r
 }
@@ -568,9 +569,9 @@ func (g *game) GenRuinsMap(h, w int) {
 		for count > 0 {
 			count--
 			ro = room{
-				pos: position{RandInt(w - 1), RandInt(h - 1)},
-				w:   3 + RandInt(5),
-				h:   2 + RandInt(3)}
+				p: gruid.Point{RandInt(w - 1), RandInt(h - 1)},
+				w: 3 + RandInt(5),
+				h: 2 + RandInt(3)}
 			ro = d.ResizeRoom(ro)
 			if !intersectsRoom(rooms, ro) {
 				break
@@ -599,7 +600,7 @@ func (g *game) GenRuinsMap(h, w int) {
 	}
 	doors := d.DigSomeRooms(5)
 	g.Dungeon = d
-	g.Fungus = make(map[position]vegetation)
+	g.Fungus = make(map[gruid.Point]vegetation)
 	g.DigFungus(1 + RandInt(2))
 	g.PutDoors(30)
 	g.PutDoorsList(doors, 20)
@@ -617,11 +618,11 @@ loop:
 		if n <= 0 {
 			break
 		}
-		pos := d.FreeCell()
-		if _, ok := fungus[pos]; ok {
+		p := d.FreeCell()
+		if _, ok := fungus[p]; ok {
 			continue
 		}
-		conn, count := d.Connected(pos, func(npos position) bool {
+		conn, count := d.Connected(p, func(npos gruid.Point) bool {
 			_, ok := fungus[npos]
 			//return ok && d.IsFreeCell(npos)
 			return ok
@@ -646,7 +647,7 @@ type roomSlice []room
 func (rs roomSlice) Len() int      { return len(rs) }
 func (rs roomSlice) Swap(i, j int) { rs[i], rs[j] = rs[j], rs[i] }
 func (rs roomSlice) Less(i, j int) bool {
-	return rs[i].pos.Y < rs[j].pos.Y || rs[i].pos.Y == rs[j].pos.Y && rs[i].pos.X < rs[j].pos.X
+	return rs[i].p.Y < rs[j].p.Y || rs[i].p.Y == rs[j].p.Y && rs[i].p.X < rs[j].p.X
 }
 
 func (g *game) GenRoomMap(h, w int) {
@@ -661,9 +662,9 @@ func (g *game) GenRoomMap(h, w int) {
 		for count > 0 {
 			count--
 			ro = room{
-				pos: position{RandInt(w - 1), RandInt(h - 1)},
-				w:   5 + RandInt(4),
-				h:   3 + RandInt(3)}
+				p: gruid.Point{RandInt(w - 1), RandInt(h - 1)},
+				w: 5 + RandInt(4),
+				h: 3 + RandInt(3)}
 			ro = d.ResizeRoom(ro)
 			if !intersectsRoom(rooms, ro) {
 				break
@@ -701,18 +702,16 @@ func (g *game) GenRoomMap(h, w int) {
 	g.PutDoorsList(doors, 10)
 }
 
-func (g *game) PutDoorsList(doors map[position]bool, threshold int) {
-	for pos := range doors {
-		if g.DoorCandidate(pos) && RandInt(100) > threshold {
-			g.Doors[pos] = true
-			if _, ok := g.Fungus[pos]; ok {
-				delete(g.Fungus, pos)
-			}
+func (g *game) PutDoorsList(doors map[gruid.Point]bool, threshold int) {
+	for p := range doors {
+		if g.DoorCandidate(p) && RandInt(100) > threshold {
+			g.Doors[p] = true
+			delete(g.Fungus, p)
 		}
 	}
 }
 
-func (d *dungeon) FreeCell() position {
+func (d *dungeon) FreeCell() gruid.Point {
 	count := 0
 	for {
 		count++
@@ -721,15 +720,15 @@ func (d *dungeon) FreeCell() position {
 		}
 		x := RandInt(DungeonWidth)
 		y := RandInt(DungeonHeight)
-		pos := position{x, y}
-		c := d.Cell(pos)
+		p := gruid.Point{x, y}
+		c := d.Cell(p)
 		if c.T == FreeCell {
-			return pos
+			return p
 		}
 	}
 }
 
-func (d *dungeon) WallCell() position {
+func (d *dungeon) WallCell() gruid.Point {
 	count := 0
 	for {
 		count++
@@ -738,10 +737,10 @@ func (d *dungeon) WallCell() position {
 		}
 		x := RandInt(DungeonWidth)
 		y := RandInt(DungeonHeight)
-		pos := position{x, y}
-		c := d.Cell(pos)
+		p := gruid.Point{x, y}
+		c := d.Cell(p)
 		if c.T == WallCell {
-			return pos
+			return p
 		}
 	}
 }
@@ -750,39 +749,39 @@ func (g *game) GenCaveMap(h, w int) {
 	d := &dungeon{}
 	d.PR = paths.NewPathRange(gruid.NewRange(0, 0, DungeonWidth, DungeonHeight))
 	d.Cells = make([]cell, h*w)
-	pos := position{40, 10}
+	p := gruid.Point{40, 10}
 	max := 21 * 42
-	d.SetCell(pos, FreeCell)
+	d.SetCell(p, FreeCell)
 	cells := 1
 	notValid := 0
-	lastValid := pos
+	lastValid := p
 	diag := RandInt(4) == 0
 	for cells < max {
-		npos := pos.RandomNeighbor(diag)
-		if !pos.valid() && npos.valid() && d.Cell(npos).T == WallCell {
-			pos = lastValid
+		npos := RandomNeighbor(p, diag)
+		if !valid(p) && valid(npos) && d.Cell(npos).T == WallCell {
+			p = lastValid
 			continue
 		}
-		pos = npos
-		if pos.valid() {
-			if d.Cell(pos).T != FreeCell {
-				d.SetCell(pos, FreeCell)
+		p = npos
+		if valid(p) {
+			if d.Cell(p).T != FreeCell {
+				d.SetCell(p, FreeCell)
 				cells++
 			}
-			lastValid = pos
+			lastValid = p
 		} else {
 			notValid++
 		}
 		if notValid > 200 {
 			notValid = 0
-			pos = lastValid
+			p = lastValid
 		}
 	}
 	cells = 1
 	max = DungeonHeight * 1
 	digs := 0
 	i := 0
-	block := make([]position, 0, 64)
+	block := make([]gruid.Point, 0, 64)
 loop:
 	for cells < max {
 		i++
@@ -800,25 +799,25 @@ loop:
 		if len(block) < 4 || len(block) > 10 {
 			continue loop
 		}
-		for _, pos := range block {
-			d.SetCell(pos, FreeCell)
+		for _, p := range block {
+			d.SetCell(p, FreeCell)
 			cells++
 		}
 		digs++
 	}
-	doors := make(map[position]bool)
+	doors := make(map[gruid.Point]bool)
 	rooms := 0
 	if RandInt(4) > 0 {
 		w, h := GenCaveRoomSize()
 		rooms++
-		for pos := range d.BuildSomeRoom(w, h) {
-			doors[pos] = true
+		for p := range d.BuildSomeRoom(w, h) {
+			doors[p] = true
 		}
 		if RandInt(7) == 0 {
 			rooms++
 			w, h := GenCaveRoomSize()
-			for pos := range d.BuildSomeRoom(w, h) {
-				doors[pos] = true
+			for p := range d.BuildSomeRoom(w, h) {
+				doors[p] = true
 			}
 
 		}
@@ -826,10 +825,10 @@ loop:
 	if RandInt(1+rooms) == 0 {
 		w, h := GenLittleRoomSize()
 		i := 0
-		for pos := range d.DigIsolatedRoom(w, h) {
-			doors[pos] = true
+		for p := range d.DigIsolatedRoom(w, h) {
+			doors[p] = true
 			if i == 0 {
-				d.ConnectIsolatedRoom(pos)
+				d.ConnectIsolatedRoom(p)
 			}
 			i++
 		}
@@ -838,12 +837,10 @@ loop:
 	g.Dungeon = d
 	g.Fungus = g.Foliage(DungeonHeight, DungeonWidth)
 	g.PutDoors(5)
-	for pos := range doors {
-		if g.DoorCandidate(pos) && RandInt(100) > 20 {
-			g.Doors[pos] = true
-			if _, ok := g.Fungus[pos]; ok {
-				delete(g.Fungus, pos)
-			}
+	for p := range doors {
+		if g.DoorCandidate(p) && RandInt(100) > 20 {
+			g.Doors[p] = true
+			delete(g.Fungus, p)
 		}
 	}
 }
@@ -856,43 +853,43 @@ func GenLittleRoomSize() (int, int) {
 	return 7, 5
 }
 
-func (d *dungeon) HasFreeNeighbor(pos position) bool {
-	neighbors := pos.ValidNeighbors()
-	for _, pos := range neighbors {
-		if d.Cell(pos).T == FreeCell {
+func (d *dungeon) HasFreeNeighbor(p gruid.Point) bool {
+	neighbors := ValidNeighbors(p)
+	for _, p := range neighbors {
+		if d.Cell(p).T == FreeCell {
 			return true
 		}
 	}
 	return false
 }
 
-func (g *game) HasFreeExploredNeighbor(pos position) bool {
+func (g *game) HasFreeExploredNeighbor(p gruid.Point) bool {
 	d := g.Dungeon
-	neighbors := pos.ValidNeighbors()
-	for _, pos := range neighbors {
-		c := d.Cell(pos)
-		if c.T == FreeCell && c.Explored && !g.WrongWall[pos] {
+	neighbors := ValidNeighbors(p)
+	for _, p := range neighbors {
+		c := d.Cell(p)
+		if c.T == FreeCell && c.Explored && !g.WrongWall[p] {
 			return true
 		}
 	}
 	return false
 }
 
-func (d *dungeon) DigBlock(block []position, diag bool) []position {
-	pos := d.WallCell()
+func (d *dungeon) DigBlock(block []gruid.Point, diag bool) []gruid.Point {
+	p := d.WallCell()
 	block = block[:0]
 	for {
-		block = append(block, pos)
-		if d.HasFreeNeighbor(pos) {
+		block = append(block, p)
+		if d.HasFreeNeighbor(p) {
 			break
 		}
-		pos = pos.RandomNeighbor(diag)
-		if !pos.valid() {
+		p = RandomNeighbor(p, diag)
+		if !valid(p) {
 			block = block[:0]
-			pos = d.WallCell()
+			p = d.WallCell()
 			continue
 		}
-		if !pos.valid() {
+		if !valid(p) {
 			return nil
 		}
 	}
@@ -903,29 +900,29 @@ func (g *game) GenCaveMapTree(h, w int) {
 	d := &dungeon{}
 	d.PR = paths.NewPathRange(gruid.NewRange(0, 0, DungeonWidth, DungeonHeight))
 	d.Cells = make([]cell, h*w)
-	center := position{40, 10}
+	center := gruid.Point{40, 10}
 	d.SetCell(center, FreeCell)
-	d.SetCell(center.E(), FreeCell)
-	d.SetCell(center.NE(), FreeCell)
-	d.SetCell(center.S(), FreeCell)
-	d.SetCell(center.SE(), FreeCell)
-	d.SetCell(center.N(), FreeCell)
-	d.SetCell(center.NW(), FreeCell)
-	d.SetCell(center.W(), FreeCell)
-	d.SetCell(center.SW(), FreeCell)
+	d.SetCell(center.Add(gruid.Point{1, 0}), FreeCell)
+	d.SetCell(center.Add(gruid.Point{1, -1}), FreeCell)
+	d.SetCell(center.Add(gruid.Point{0, 1}), FreeCell)
+	d.SetCell(center.Add(gruid.Point{1, 1}), FreeCell)
+	d.SetCell(center.Add(gruid.Point{0, -1}), FreeCell)
+	d.SetCell(center.Add(gruid.Point{-1, -1}), FreeCell)
+	d.SetCell(center.Add(gruid.Point{-1, 0}), FreeCell)
+	d.SetCell(center.Add(gruid.Point{-1, 1}), FreeCell)
 	max := 21 * 23
 	cells := 1
 	diag := RandInt(2) == 0
-	block := make([]position, 0, 64)
+	block := make([]gruid.Point, 0, 64)
 loop:
 	for cells < max {
 		block = d.DigBlock(block, diag)
 		if len(block) == 0 {
 			continue loop
 		}
-		for _, pos := range block {
-			if d.Cell(pos).T != FreeCell {
-				d.SetCell(pos, FreeCell)
+		for _, p := range block {
+			if d.Cell(p).T != FreeCell {
+				d.SetCell(p, FreeCell)
 				cells++
 			}
 		}
@@ -933,31 +930,31 @@ loop:
 
 	doors := d.DigSomeRooms(5)
 	g.Dungeon = d
-	g.Fungus = make(map[position]vegetation)
+	g.Fungus = make(map[gruid.Point]vegetation)
 	g.DigFungus(1 + RandInt(2))
 	g.PutDoors(5)
 	g.PutDoorsList(doors, 20)
 }
 
-func (d *dungeon) DigSomeRooms(chances int) map[position]bool {
-	doors := make(map[position]bool)
+func (d *dungeon) DigSomeRooms(chances int) map[gruid.Point]bool {
+	doors := make(map[gruid.Point]bool)
 	if RandInt(chances) > 0 {
 		w, h := GenCaveRoomSize()
-		for pos := range d.DigSomeRoom(w, h) {
-			doors[pos] = true
+		for p := range d.DigSomeRoom(w, h) {
+			doors[p] = true
 		}
 		if RandInt(3) == 0 {
 			w, h := GenCaveRoomSize()
-			for pos := range d.DigSomeRoom(w, h) {
-				doors[pos] = true
+			for p := range d.DigSomeRoom(w, h) {
+				doors[p] = true
 			}
 		}
 	}
 	return doors
 }
 
-func (d *dungeon) WallAreaCount(area []position, pos position, radius int) int {
-	area = d.Area(area, pos, radius)
+func (d *dungeon) WallAreaCount(area []gruid.Point, p gruid.Point, radius int) int {
+	area = d.Area(area, p, radius)
 	count := 0
 	for _, npos := range area {
 		if d.Cell(npos).T == WallCell {
@@ -973,17 +970,17 @@ func (d *dungeon) WallAreaCount(area []position, pos position, radius int) int {
 	return count
 }
 
-func (d *dungeon) Connected(pos position, nf func(position) bool) (map[position]bool, int) {
-	conn := map[position]bool{}
-	stack := []position{pos}
+func (d *dungeon) Connected(p gruid.Point, nf func(gruid.Point) bool) (map[gruid.Point]bool, int) {
+	conn := map[gruid.Point]bool{}
+	stack := []gruid.Point{p}
 	count := 0
-	conn[pos] = true
-	nb := make([]position, 0, 8)
+	conn[p] = true
+	nb := make([]gruid.Point, 0, 8)
 	for len(stack) > 0 {
-		pos = stack[len(stack)-1]
+		p = stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
 		count++
-		nb = pos.Neighbors(nb, nf)
+		nb = Neighbors(p, nb, nf)
 		for _, npos := range nb {
 			if !conn[npos] {
 				conn[npos] = true
@@ -995,10 +992,10 @@ func (d *dungeon) Connected(pos position, nf func(position) bool) (map[position]
 }
 
 func (d *dungeon) connex() bool {
-	pos := d.FreeCell()
-	conn, _ := d.Connected(pos, d.IsFreeCell)
+	p := d.FreeCell()
+	conn, _ := d.Connected(p, d.IsFreeCell)
 	for i, c := range d.Cells {
-		if c.T == FreeCell && !conn[idxtopos(i)] {
+		if c.T == FreeCell && !conn[idx2Point(i)] {
 			return false
 		}
 	}
@@ -1011,47 +1008,47 @@ func (g *game) RunCellularAutomataCave(h, w int) bool {
 	d.Cells = make([]cell, h*w)
 	for i := range d.Cells {
 		r := RandInt(100)
-		pos := idxtopos(i)
+		p := idx2Point(i)
 		if r >= 45 {
-			d.SetCell(pos, FreeCell)
+			d.SetCell(p, FreeCell)
 		} else {
-			d.SetCell(pos, WallCell)
+			d.SetCell(p, WallCell)
 		}
 	}
 	bufm := &dungeon{}
 	bufm.Cells = make([]cell, h*w)
-	area := make([]position, 0, 25)
+	area := make([]gruid.Point, 0, 25)
 	for i := 0; i < 5; i++ {
 		for j := range bufm.Cells {
-			pos := idxtopos(j)
-			c1 := d.WallAreaCount(area, pos, 1)
+			p := idx2Point(j)
+			c1 := d.WallAreaCount(area, p, 1)
 			if c1 >= 5 {
-				bufm.SetCell(pos, WallCell)
+				bufm.SetCell(p, WallCell)
 			} else {
-				bufm.SetCell(pos, FreeCell)
+				bufm.SetCell(p, FreeCell)
 			}
 			if i == 3 {
-				c2 := d.WallAreaCount(area, pos, 2)
+				c2 := d.WallAreaCount(area, p, 2)
 				if c2 <= 2 {
-					bufm.SetCell(pos, WallCell)
+					bufm.SetCell(p, WallCell)
 				}
 			}
 		}
 		copy(d.Cells, bufm.Cells)
 	}
-	var conn map[position]bool
+	var conn map[gruid.Point]bool
 	var count int
-	var winner position
+	var winner gruid.Point
 	for i := 0; i < 15; i++ {
-		pos := d.FreeCell()
-		if conn[pos] {
+		p := d.FreeCell()
+		if conn[p] {
 			continue
 		}
 		var ncount int
-		conn, ncount = d.Connected(pos, d.IsFreeCell)
+		conn, ncount = d.Connected(p, d.IsFreeCell)
 		if ncount > count {
 			count = ncount
-			winner = pos
+			winner = p
 		}
 		if count >= 37*DungeonHeight*DungeonWidth/100 {
 			break
@@ -1062,16 +1059,16 @@ func (g *game) RunCellularAutomataCave(h, w int) bool {
 		return false
 	}
 	for i, c := range d.Cells {
-		pos := idxtopos(i)
-		if c.T == FreeCell && !conn[pos] {
-			d.SetCell(pos, WallCell)
+		p := idx2Point(i)
+		if c.T == FreeCell && !conn[p] {
+			d.SetCell(p, WallCell)
 		}
 	}
 	digs := 0
 	max := DungeonHeight / 2
 	cells := 1
 	i := 0
-	block := make([]position, 0, 64)
+	block := make([]gruid.Point, 0, 64)
 loop:
 	for cells < max {
 		i++
@@ -1089,30 +1086,30 @@ loop:
 		if len(block) < 4 || len(block) > 10 {
 			continue loop
 		}
-		for _, pos := range block {
-			d.SetCell(pos, FreeCell)
+		for _, p := range block {
+			d.SetCell(p, FreeCell)
 			cells++
 		}
 		digs++
 	}
-	doors := make(map[position]bool)
+	doors := make(map[gruid.Point]bool)
 	if RandInt(5) > 0 {
 		w, h := GenLittleRoomSize()
 		i := 0
-		for pos := range d.DigIsolatedRoom(w, h) {
-			doors[pos] = true
+		for p := range d.DigIsolatedRoom(w, h) {
+			doors[p] = true
 			if i == 0 {
-				d.ConnectIsolatedRoom(pos)
+				d.ConnectIsolatedRoom(p)
 			}
 			i++
 		}
 		if RandInt(4) == 0 {
 			w, h := GenCaveRoomSize()
 			i := 0
-			for pos := range d.DigIsolatedRoom(w, h) {
-				doors[pos] = true
+			for p := range d.DigIsolatedRoom(w, h) {
+				doors[p] = true
 				if i == 0 {
-					d.ConnectIsolatedRoom(pos)
+					d.ConnectIsolatedRoom(p)
 				}
 				i++
 			}
@@ -1120,12 +1117,10 @@ loop:
 	}
 	g.Dungeon = d
 	g.PutDoors(10)
-	for pos := range doors {
-		if g.DoorCandidate(pos) && RandInt(100) > 20 {
-			g.Doors[pos] = true
-			if _, ok := g.Fungus[pos]; ok {
-				delete(g.Fungus, pos)
-			}
+	for p := range doors {
+		if g.DoorCandidate(p) && RandInt(100) > 20 {
+			g.Doors[p] = true
+			delete(g.Fungus, p)
 		}
 	}
 	return true
@@ -1145,22 +1140,22 @@ func (g *game) GenCellularAutomataCaveMap(h, w int) {
 	g.Fungus = g.Foliage(DungeonHeight, DungeonWidth)
 }
 
-func (d *dungeon) SimpleRoom(r room) map[position]bool {
-	for i := r.pos.X; i < r.pos.X+r.w; i++ {
-		d.SetCell(position{i, r.pos.Y}, WallCell)
-		d.SetCell(position{i, r.pos.Y + r.h - 1}, WallCell)
+func (d *dungeon) SimpleRoom(r room) map[gruid.Point]bool {
+	for i := r.p.X; i < r.p.X+r.w; i++ {
+		d.SetCell(gruid.Point{i, r.p.Y}, WallCell)
+		d.SetCell(gruid.Point{i, r.p.Y + r.h - 1}, WallCell)
 	}
-	for i := r.pos.Y; i < r.pos.Y+r.h; i++ {
-		d.SetCell(position{r.pos.X, i}, WallCell)
-		d.SetCell(position{r.pos.X + r.w - 1, i}, WallCell)
+	for i := r.p.Y; i < r.p.Y+r.h; i++ {
+		d.SetCell(gruid.Point{r.p.X, i}, WallCell)
+		d.SetCell(gruid.Point{r.p.X + r.w - 1, i}, WallCell)
 	}
-	doorsc := [4]position{
-		{r.pos.X + r.w/2, r.pos.Y},
-		{r.pos.X + r.w/2, r.pos.Y + r.h - 1},
-		{r.pos.X, r.pos.Y + r.h/2},
-		{r.pos.X + r.w - 1, r.pos.Y + r.h/2},
+	doorsc := [4]gruid.Point{
+		{r.p.X + r.w/2, r.p.Y},
+		{r.p.X + r.w/2, r.p.Y + r.h - 1},
+		{r.p.X, r.p.Y + r.h/2},
+		{r.p.X + r.w - 1, r.p.Y + r.h/2},
 	}
-	doors := make(map[position]bool)
+	doors := make(map[gruid.Point]bool)
 	for i := 0; i < 3+RandInt(2); i++ {
 		dpos := doorsc[RandInt(4)]
 		doors[dpos] = true
@@ -1169,86 +1164,86 @@ func (d *dungeon) SimpleRoom(r room) map[position]bool {
 	return doors
 }
 
-func (g *game) ExtendEdgeRoom(r room, doors map[position]bool) room {
-	if g.Dungeon.Cell(r.pos).T != WallCell {
+func (g *game) ExtendEdgeRoom(r room, doors map[gruid.Point]bool) room {
+	if g.Dungeon.Cell(r.p).T != WallCell {
 		return r
 	}
 	extend := false
-	if r.pos.X+r.w+1 == DungeonWidth {
-		for i := r.pos.Y + 1; i < r.pos.Y+r.h-1; i++ {
-			g.Dungeon.SetCell(position{DungeonWidth - 2, i}, FreeCell)
-			g.Dungeon.SetCell(position{DungeonWidth - 1, i}, WallCell)
+	if r.p.X+r.w+1 == DungeonWidth {
+		for i := r.p.Y + 1; i < r.p.Y+r.h-1; i++ {
+			g.Dungeon.SetCell(gruid.Point{DungeonWidth - 2, i}, FreeCell)
+			g.Dungeon.SetCell(gruid.Point{DungeonWidth - 1, i}, WallCell)
 		}
-		g.Dungeon.SetCell(position{DungeonWidth - 1, r.pos.Y}, WallCell)
-		g.Dungeon.SetCell(position{DungeonWidth - 1, r.pos.Y + r.h - 1}, WallCell)
-		g.Dungeon.SetCell(position{DungeonWidth - 2, r.pos.Y + 1}, WallCell)
-		g.Dungeon.SetCell(position{DungeonWidth - 2, r.pos.Y + r.h - 2}, WallCell)
+		g.Dungeon.SetCell(gruid.Point{DungeonWidth - 1, r.p.Y}, WallCell)
+		g.Dungeon.SetCell(gruid.Point{DungeonWidth - 1, r.p.Y + r.h - 1}, WallCell)
+		g.Dungeon.SetCell(gruid.Point{DungeonWidth - 2, r.p.Y + 1}, WallCell)
+		g.Dungeon.SetCell(gruid.Point{DungeonWidth - 2, r.p.Y + r.h - 2}, WallCell)
 		r.w++
 		extend = true
 	}
-	if r.pos.X == 1 {
-		for i := r.pos.Y + 1; i < r.pos.Y+r.h-1; i++ {
-			g.Dungeon.SetCell(position{1, i}, FreeCell)
-			g.Dungeon.SetCell(position{0, i}, WallCell)
+	if r.p.X == 1 {
+		for i := r.p.Y + 1; i < r.p.Y+r.h-1; i++ {
+			g.Dungeon.SetCell(gruid.Point{1, i}, FreeCell)
+			g.Dungeon.SetCell(gruid.Point{0, i}, WallCell)
 		}
-		g.Dungeon.SetCell(position{0, r.pos.Y}, WallCell)
-		g.Dungeon.SetCell(position{0, r.pos.Y + r.h - 1}, WallCell)
-		g.Dungeon.SetCell(position{1, r.pos.Y + 1}, WallCell)
-		g.Dungeon.SetCell(position{1, r.pos.Y + r.h - 2}, WallCell)
+		g.Dungeon.SetCell(gruid.Point{0, r.p.Y}, WallCell)
+		g.Dungeon.SetCell(gruid.Point{0, r.p.Y + r.h - 1}, WallCell)
+		g.Dungeon.SetCell(gruid.Point{1, r.p.Y + 1}, WallCell)
+		g.Dungeon.SetCell(gruid.Point{1, r.p.Y + r.h - 2}, WallCell)
 		r.w++
-		r.pos.X--
+		r.p.X--
 		extend = true
 	}
-	if r.pos.Y+r.h+1 == DungeonHeight {
-		for i := r.pos.X + 1; i < r.pos.X+r.w-1; i++ {
-			g.Dungeon.SetCell(position{i, DungeonHeight - 2}, FreeCell)
-			g.Dungeon.SetCell(position{i, DungeonHeight - 1}, WallCell)
+	if r.p.Y+r.h+1 == DungeonHeight {
+		for i := r.p.X + 1; i < r.p.X+r.w-1; i++ {
+			g.Dungeon.SetCell(gruid.Point{i, DungeonHeight - 2}, FreeCell)
+			g.Dungeon.SetCell(gruid.Point{i, DungeonHeight - 1}, WallCell)
 		}
-		g.Dungeon.SetCell(position{r.pos.X, DungeonHeight - 1}, WallCell)
-		g.Dungeon.SetCell(position{r.pos.X + r.w - 1, DungeonHeight - 1}, WallCell)
-		g.Dungeon.SetCell(position{r.pos.X + 1, DungeonHeight - 2}, WallCell)
-		g.Dungeon.SetCell(position{r.pos.X + r.w - 2, DungeonHeight - 2}, WallCell)
+		g.Dungeon.SetCell(gruid.Point{r.p.X, DungeonHeight - 1}, WallCell)
+		g.Dungeon.SetCell(gruid.Point{r.p.X + r.w - 1, DungeonHeight - 1}, WallCell)
+		g.Dungeon.SetCell(gruid.Point{r.p.X + 1, DungeonHeight - 2}, WallCell)
+		g.Dungeon.SetCell(gruid.Point{r.p.X + r.w - 2, DungeonHeight - 2}, WallCell)
 		r.h++
 		extend = true
 	}
-	if r.pos.Y == 1 {
-		for i := r.pos.X + 1; i < r.pos.X+r.w-1; i++ {
-			g.Dungeon.SetCell(position{i, 1}, FreeCell)
-			g.Dungeon.SetCell(position{i, 0}, WallCell)
+	if r.p.Y == 1 {
+		for i := r.p.X + 1; i < r.p.X+r.w-1; i++ {
+			g.Dungeon.SetCell(gruid.Point{i, 1}, FreeCell)
+			g.Dungeon.SetCell(gruid.Point{i, 0}, WallCell)
 		}
-		g.Dungeon.SetCell(position{r.pos.X, 0}, WallCell)
-		g.Dungeon.SetCell(position{r.pos.X + r.w - 1, 0}, WallCell)
-		g.Dungeon.SetCell(position{r.pos.X + 1, 1}, WallCell)
-		g.Dungeon.SetCell(position{r.pos.X + r.w - 2, 1}, WallCell)
+		g.Dungeon.SetCell(gruid.Point{r.p.X, 0}, WallCell)
+		g.Dungeon.SetCell(gruid.Point{r.p.X + r.w - 1, 0}, WallCell)
+		g.Dungeon.SetCell(gruid.Point{r.p.X + 1, 1}, WallCell)
+		g.Dungeon.SetCell(gruid.Point{r.p.X + r.w - 2, 1}, WallCell)
 		r.h++
-		r.pos.Y--
+		r.p.Y--
 		extend = true
 	}
 	if !extend {
 		return r
 	}
-	for pos := range doors {
-		if pos.X == 1 || pos.X == DungeonWidth-2 || pos.Y == 1 || pos.Y == DungeonHeight-2 {
-			delete(g.Doors, pos)
+	for p := range doors {
+		if p.X == 1 || p.X == DungeonWidth-2 || p.Y == 1 || p.Y == DungeonHeight-2 {
+			delete(g.Doors, p)
 			continue
 		}
 	}
-	doorsc := [4]position{
-		{r.pos.X + r.w/2, r.pos.Y},
-		{r.pos.X + r.w/2, r.pos.Y + r.h - 1},
-		{r.pos.X, r.pos.Y + r.h/2},
-		{r.pos.X + r.w - 1, r.pos.Y + r.h/2},
+	doorsc := [4]gruid.Point{
+		{r.p.X + r.w/2, r.p.Y},
+		{r.p.X + r.w/2, r.p.Y + r.h - 1},
+		{r.p.X, r.p.Y + r.h/2},
+		{r.p.X + r.w - 1, r.p.Y + r.h/2},
 	}
-	ndoorsc := []position{}
+	ndoorsc := []gruid.Point{}
 	ndoors := 0
-	for _, pos := range doorsc {
-		if pos.X == 0 || pos.X == DungeonWidth-1 || pos.Y == 0 || pos.Y == DungeonHeight-1 {
+	for _, p := range doorsc {
+		if p.X == 0 || p.X == DungeonWidth-1 || p.Y == 0 || p.Y == DungeonHeight-1 {
 			continue
 		}
-		if g.Doors[pos] {
+		if g.Doors[p] {
 			ndoors++
 		}
-		ndoorsc = append(ndoorsc, pos)
+		ndoorsc = append(ndoorsc, p)
 	}
 	for i := 0; i < 1+RandInt(2-ndoors); i++ {
 		dpos := ndoorsc[RandInt(len(ndoorsc))]
@@ -1259,7 +1254,7 @@ func (g *game) ExtendEdgeRoom(r room, doors map[position]bool) room {
 }
 
 func (g *game) DivideRoomVertically(r room) {
-	if g.Dungeon.Cell(r.pos).T != WallCell {
+	if g.Dungeon.Cell(r.p).T != WallCell {
 		return
 	}
 	if r.w <= 6 {
@@ -1272,17 +1267,17 @@ func (g *game) DivideRoomVertically(r room) {
 	if RandInt(2) == 0 {
 		dx = r.w - 3 - RandInt(r.w/2-3)
 	}
-	if dx == 2 && r.pos.X == 0 {
+	if dx == 2 && r.p.X == 0 {
 		return
 	}
-	if dx == r.w-3 && r.pos.X+r.w == DungeonWidth {
+	if dx == r.w-3 && r.p.X+r.w == DungeonWidth {
 		return
 	}
 	free := true
 loop:
-	for i := r.pos.Y + 1; i < r.pos.Y+r.h-1; i++ {
+	for i := r.p.Y + 1; i < r.p.Y+r.h-1; i++ {
 		for j := dx - 1; j <= dx+1; j++ {
-			if g.Dungeon.Cell(position{r.pos.X + j, i}).T == WallCell {
+			if g.Dungeon.Cell(gruid.Point{r.p.X + j, i}).T == WallCell {
 				free = false
 				break loop
 			}
@@ -1291,16 +1286,16 @@ loop:
 	if !free {
 		return
 	}
-	for i := r.pos.Y + 1; i < r.pos.Y+r.h-1; i++ {
-		g.Dungeon.SetCell(position{r.pos.X + dx, i}, WallCell)
+	for i := r.p.Y + 1; i < r.p.Y+r.h-1; i++ {
+		g.Dungeon.SetCell(gruid.Point{r.p.X + dx, i}, WallCell)
 	}
-	doorpos := position{r.pos.X + dx, r.pos.Y + r.h/2}
+	doorpos := gruid.Point{r.p.X + dx, r.p.Y + r.h/2}
 	g.Doors[doorpos] = true
 	g.Dungeon.SetCell(doorpos, FreeCell)
 }
 
 func (g *game) DivideRoomHorizontally(r room) {
-	if g.Dungeon.Cell(r.pos).T != WallCell {
+	if g.Dungeon.Cell(r.p).T != WallCell {
 		return
 	}
 	if r.h <= 6 {
@@ -1313,17 +1308,17 @@ func (g *game) DivideRoomHorizontally(r room) {
 	if RandInt(2) == 0 {
 		dy = r.h - 3 - RandInt(r.h/2-3)
 	}
-	if dy == 2 && r.pos.Y == 0 {
+	if dy == 2 && r.p.Y == 0 {
 		return
 	}
-	if dy == r.h-3 && r.pos.Y+r.h == DungeonHeight {
+	if dy == r.h-3 && r.p.Y+r.h == DungeonHeight {
 		return
 	}
 	free := true
 loop:
-	for i := r.pos.X + 1; i < r.pos.X+r.w-1; i++ {
+	for i := r.p.X + 1; i < r.p.X+r.w-1; i++ {
 		for j := dy - 1; j <= dy+1; j++ {
-			if g.Dungeon.Cell(position{i, r.pos.Y + j}).T == WallCell {
+			if g.Dungeon.Cell(gruid.Point{i, r.p.Y + j}).T == WallCell {
 				free = false
 				break loop
 			}
@@ -1332,17 +1327,17 @@ loop:
 	if !free {
 		return
 	}
-	for i := r.pos.X + 1; i < r.pos.X+r.w-1; i++ {
-		g.Dungeon.SetCell(position{i, r.pos.Y + dy}, WallCell)
+	for i := r.p.X + 1; i < r.p.X+r.w-1; i++ {
+		g.Dungeon.SetCell(gruid.Point{i, r.p.Y + dy}, WallCell)
 	}
-	doorpos := position{r.pos.X + r.w/2, r.pos.Y + dy}
+	doorpos := gruid.Point{r.p.X + r.w/2, r.p.Y + dy}
 	g.Doors[doorpos] = true
 	g.Dungeon.SetCell(doorpos, FreeCell)
 }
 
 func (g *game) GenBSPMap(height, width int) {
 	rooms := []room{}
-	crooms := []room{{pos: position{1, 1}, w: DungeonWidth - 2, h: DungeonHeight - 2}}
+	crooms := []room{{p: gruid.Point{1, 1}, w: DungeonWidth - 2, h: DungeonHeight - 2}}
 	big := 0
 	for len(crooms) > 0 {
 		r := crooms[0]
@@ -1353,14 +1348,14 @@ func (g *game) GenBSPMap(height, width int) {
 				if r.h >= 6 {
 					r.h--
 					if RandInt(2) == 0 {
-						r.pos.Y++
+						r.p.Y++
 					}
 				}
 			case 1:
 				if r.w >= 8 {
 					r.w--
 					if RandInt(2) == 0 {
-						r.pos.X++
+						r.p.X++
 					}
 				}
 			}
@@ -1375,12 +1370,12 @@ func (g *game) GenBSPMap(height, width int) {
 			case 0:
 				r.h--
 				if RandInt(2) == 0 {
-					r.pos.Y++
+					r.p.Y++
 				}
 			case 1:
 				r.w--
 				if RandInt(2) == 0 {
-					r.pos.X++
+					r.p.X++
 				}
 			}
 			if r.h > 2 && r.w > 2 {
@@ -1402,7 +1397,7 @@ func (g *game) GenBSPMap(height, width int) {
 			if r.h-h-1 <= 3 {
 				h--
 			}
-			crooms = append(crooms, room{r.pos, r.w, h}, room{position{r.pos.X, r.pos.Y + 1 + h}, r.w, r.h - h - 1})
+			crooms = append(crooms, room{r.p, r.w, h}, room{gruid.Point{r.p.X, r.p.Y + 1 + h}, r.w, r.h - h - 1})
 		} else {
 			w := r.w/2 - r.w/4 + RandInt(1+r.w/2)
 			if w <= 3 {
@@ -1411,7 +1406,7 @@ func (g *game) GenBSPMap(height, width int) {
 			if r.w-w-1 <= 3 {
 				w--
 			}
-			crooms = append(crooms, room{r.pos, w, r.h}, room{position{r.pos.X + 1 + w, r.pos.Y}, r.w - w - 1, r.h})
+			crooms = append(crooms, room{r.p, w, r.h}, room{gruid.Point{r.p.X + 1 + w, r.p.Y}, r.w - w - 1, r.h})
 		}
 	}
 
@@ -1419,23 +1414,23 @@ func (g *game) GenBSPMap(height, width int) {
 	d.PR = paths.NewPathRange(gruid.NewRange(0, 0, DungeonWidth, DungeonHeight))
 	d.Cells = make([]cell, height*width)
 	for i := 0; i < DungeonNCells; i++ {
-		d.SetCell(idxtopos(i), FreeCell)
+		d.SetCell(idx2Point(i), FreeCell)
 	}
 	g.Dungeon = d
-	g.Doors = map[position]bool{}
+	g.Doors = map[gruid.Point]bool{}
 	special := 0
 	empty := 0
 	for i, r := range rooms {
-		var doors map[position]bool
+		var doors map[gruid.Point]bool
 		if RandInt(2+special/3) == 0 && r.w%2 == 1 && r.h%2 == 1 && r.w >= 5 && r.h >= 5 {
-			doors = d.BuildRoom(r.pos, r.w, r.h, true)
+			doors = d.BuildRoom(r.p, r.w, r.h, true)
 			special++
 		} else if empty > 0 || RandInt(20) > 0 {
 			doors = d.SimpleRoom(r)
 			if RandInt(2) == 0 && r.w >= 7 && r.h >= 7 {
 				rn := r
-				rn.pos.X++
-				rn.pos.Y++
+				rn.p.X++
+				rn.p.Y++
 				rn.h--
 				rn.h--
 				rn.w--
@@ -1448,15 +1443,15 @@ func (g *game) GenBSPMap(height, width int) {
 			} else if RandInt(1+special/2) == 0 && r.w >= 11 && r.h >= 9 {
 				sx := (r.w - 11) / 2
 				sy := (r.h - 9) / 2
-				doors = d.BuildRoom(position{r.pos.X + 2 + sx, r.pos.Y + 2 + sy}, 7, 5, true)
+				doors = d.BuildRoom(gruid.Point{r.p.X + 2 + sx, r.p.Y + 2 + sy}, 7, 5, true)
 				special++
 			}
 		} else {
 			empty++
 		}
-		for pos := range doors {
-			if g.DoorCandidate(pos) && RandInt(100) > 10 {
-				g.Doors[pos] = true
+		for p := range doors {
+			if g.DoorCandidate(p) && RandInt(100) > 10 {
+				g.Doors[p] = true
 			}
 		}
 		if RandInt(2) == 0 {
@@ -1471,13 +1466,13 @@ func (g *game) GenBSPMap(height, width int) {
 			}
 		}
 	}
-	g.Fungus = make(map[position]vegetation)
+	g.Fungus = make(map[gruid.Point]vegetation)
 	g.DigFungus(RandInt(3))
 	for i := 0; i <= RandInt(2); i++ {
 		r := rooms[RandInt(len(rooms))]
-		for x := r.pos.X + 1; x < r.pos.X+r.w-1; x++ {
-			for y := r.pos.Y + 1; y < r.pos.Y+r.h-1; y++ {
-				g.Fungus[position{x, y}] = foliage
+		for x := r.p.X + 1; x < r.p.X+r.w-1; x++ {
+			for y := r.p.Y + 1; y < r.p.Y+r.h-1; y++ {
+				g.Fungus[gruid.Point{x, y}] = foliage
 			}
 		}
 	}
@@ -1489,92 +1484,90 @@ const (
 	foliage vegetation = iota
 )
 
-func (g *game) Foliage(h, w int) map[position]vegetation {
+func (g *game) Foliage(h, w int) map[gruid.Point]vegetation {
 	// use same structure as for the dungeon
 	// walls will become foliage
 	d := &dungeon{}
 	d.Cells = make([]cell, h*w)
 	for i := range d.Cells {
 		r := RandInt(100)
-		pos := idxtopos(i)
+		p := idx2Point(i)
 		if r >= 43 {
-			d.SetCell(pos, WallCell)
+			d.SetCell(p, WallCell)
 		} else {
-			d.SetCell(pos, FreeCell)
+			d.SetCell(p, FreeCell)
 		}
 	}
-	area := make([]position, 0, 25)
+	area := make([]gruid.Point, 0, 25)
 	for i := 0; i < 6; i++ {
 		bufm := &dungeon{}
 		bufm.Cells = make([]cell, h*w)
 		copy(bufm.Cells, d.Cells)
 		for j := range bufm.Cells {
-			pos := idxtopos(j)
-			c1 := d.WallAreaCount(area, pos, 1)
+			p := idx2Point(j)
+			c1 := d.WallAreaCount(area, p, 1)
 			if i < 4 {
 				if c1 <= 4 {
-					bufm.SetCell(pos, FreeCell)
+					bufm.SetCell(p, FreeCell)
 				} else {
-					bufm.SetCell(pos, WallCell)
+					bufm.SetCell(p, WallCell)
 				}
 			}
 			if i == 4 {
 				if c1 > 6 {
-					bufm.SetCell(pos, WallCell)
+					bufm.SetCell(p, WallCell)
 				}
 			}
 			if i == 5 {
-				c2 := d.WallAreaCount(area, pos, 2)
+				c2 := d.WallAreaCount(area, p, 2)
 				if c2 < 5 && c1 <= 2 {
-					bufm.SetCell(pos, FreeCell)
+					bufm.SetCell(p, FreeCell)
 				}
 			}
 		}
 		d.Cells = bufm.Cells
 	}
-	fungus := make(map[position]vegetation)
+	fungus := make(map[gruid.Point]vegetation)
 	for i, c := range d.Cells {
-		if _, ok := g.Doors[idxtopos(i)]; !ok && c.T == FreeCell {
-			fungus[idxtopos(i)] = foliage
+		if _, ok := g.Doors[idx2Point(i)]; !ok && c.T == FreeCell {
+			fungus[idx2Point(i)] = foliage
 		}
 	}
 	return fungus
 }
 
-func (g *game) DoorCandidate(pos position) bool {
+func (g *game) DoorCandidate(p gruid.Point) bool {
 	d := g.Dungeon
-	if !pos.valid() || d.Cell(pos).T != FreeCell {
+	if !valid(p) || d.Cell(p).T != FreeCell {
 		return false
 	}
-	return pos.W().valid() && pos.E().valid() &&
-		d.Cell(pos.W()).T == FreeCell && d.Cell(pos.E()).T == FreeCell &&
-		!g.Doors[pos.W()] && !g.Doors[pos.E()] &&
-		(!pos.N().valid() || d.Cell(pos.N()).T == WallCell) &&
-		(!pos.S().valid() || d.Cell(pos.S()).T == WallCell) &&
-		((pos.NW().valid() && d.Cell(pos.NW()).T == FreeCell) ||
-			(pos.SW().valid() && d.Cell(pos.SW()).T == FreeCell) ||
-			(pos.NE().valid() && d.Cell(pos.NE()).T == FreeCell) ||
-			(pos.SE().valid() && d.Cell(pos.SE()).T == FreeCell)) ||
-		pos.N().valid() && pos.S().valid() &&
-			d.Cell(pos.N()).T == FreeCell && d.Cell(pos.S()).T == FreeCell &&
-			!g.Doors[pos.N()] && !g.Doors[pos.S()] &&
-			(!pos.E().valid() || d.Cell(pos.E()).T == WallCell) &&
-			(!pos.W().valid() || d.Cell(pos.W()).T == WallCell) &&
-			((pos.NW().valid() && d.Cell(pos.NW()).T == FreeCell) ||
-				(pos.SW().valid() && d.Cell(pos.SW()).T == FreeCell) ||
-				(pos.NE().valid() && d.Cell(pos.NE()).T == FreeCell) ||
-				(pos.SE().valid() && d.Cell(pos.SE()).T == FreeCell))
+	return valid(p.Add(gruid.Point{-1, 0})) && valid(p.Add(gruid.Point{1, 0})) &&
+		d.Cell(p.Add(gruid.Point{-1, 0})).T == FreeCell && d.Cell(p.Add(gruid.Point{1, 0})).T == FreeCell &&
+		!g.Doors[p.Add(gruid.Point{-1, 0})] && !g.Doors[p.Add(gruid.Point{1, 0})] &&
+		(!valid(p.Add(gruid.Point{0, -1})) || d.Cell(p.Add(gruid.Point{0, -1})).T == WallCell) &&
+		(!valid(p.Add(gruid.Point{0, 1})) || d.Cell(p.Add(gruid.Point{0, 1})).T == WallCell) &&
+		((valid(p.Add(gruid.Point{-1, -1})) && d.Cell(p.Add(gruid.Point{-1, -1})).T == FreeCell) ||
+			(valid(p.Add(gruid.Point{-1, 1})) && d.Cell(p.Add(gruid.Point{-1, 1})).T == FreeCell) ||
+			(valid(p.Add(gruid.Point{1, -1})) && d.Cell(p.Add(gruid.Point{1, -1})).T == FreeCell) ||
+			(valid(p.Add(gruid.Point{1, 1})) && d.Cell(p.Add(gruid.Point{1, 1})).T == FreeCell)) ||
+		valid(p.Add(gruid.Point{0, -1})) && valid(p.Add(gruid.Point{0, 1})) &&
+			d.Cell(p.Add(gruid.Point{0, -1})).T == FreeCell && d.Cell(p.Add(gruid.Point{0, 1})).T == FreeCell &&
+			!g.Doors[p.Add(gruid.Point{0, -1})] && !g.Doors[p.Add(gruid.Point{0, 1})] &&
+			(!valid(p.Add(gruid.Point{1, 0})) || d.Cell(p.Add(gruid.Point{1, 0})).T == WallCell) &&
+			(!valid(p.Add(gruid.Point{-1, 0})) || d.Cell(p.Add(gruid.Point{-1, 0})).T == WallCell) &&
+			((valid(p.Add(gruid.Point{-1, -1})) && d.Cell(p.Add(gruid.Point{-1, -1})).T == FreeCell) ||
+				(valid(p.Add(gruid.Point{-1, 1})) && d.Cell(p.Add(gruid.Point{-1, 1})).T == FreeCell) ||
+				(valid(p.Add(gruid.Point{1, -1})) && d.Cell(p.Add(gruid.Point{1, -1})).T == FreeCell) ||
+				(valid(p.Add(gruid.Point{1, 1})) && d.Cell(p.Add(gruid.Point{1, 1})).T == FreeCell))
 }
 
 func (g *game) PutDoors(percentage int) {
-	g.Doors = map[position]bool{}
+	g.Doors = map[gruid.Point]bool{}
 	for i := range g.Dungeon.Cells {
-		pos := idxtopos(i)
-		if g.DoorCandidate(pos) && RandInt(100) < percentage {
-			g.Doors[pos] = true
-			if _, ok := g.Fungus[pos]; ok {
-				delete(g.Fungus, pos)
-			}
+		p := idx2Point(i)
+		if g.DoorCandidate(p) && RandInt(100) < percentage {
+			g.Doors[p] = true
+			delete(g.Fungus, p)
 		}
 	}
 }
