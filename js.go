@@ -8,10 +8,11 @@ import (
 	"fmt"
 	"log"
 	"runtime"
+	"syscall/js"
 	"time"
 	"unicode/utf8"
 
-	"syscall/js"
+	"codeberg.org/anaseto/gruid"
 )
 
 func main() {
