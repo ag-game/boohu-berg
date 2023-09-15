@@ -13,6 +13,7 @@ v0.14-dev
   outdated). Boohu still doesn't use gruid for the UI, as it would require a
   lot of work to migrate from the current awkward (but working) UI code, so
   we're limited on how much we can do UI-wise.
++ Pathfinding uses gruid now. Dungeon generation still doesn't use gruid.
 
 -----------------------------------------------------------------------------
 v0.13 2019-11-19
