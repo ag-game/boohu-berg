@@ -2021,7 +2021,7 @@ func (m *monster) HandleTurn(g *game, ev event) {
 		ev.Renew(g, movedelay)
 		return
 	}
-	target := m.Path[len(m.Path)-2]
+	target := m.Path[1]
 	mons := g.MonsterAt(target)
 	switch {
 	case !mons.Exists():
@@ -2039,7 +2039,7 @@ func (m *monster) HandleTurn(g *game, ev event) {
 				g.StopAuto()
 			}
 			m.MoveTo(g, target)
-			m.Path = m.Path[:len(m.Path)-1]
+			m.Path = m.Path[1:]
 		} else if g.Dungeon.Cell(target).T == WallCell {
 			m.Path = m.APath(g, mpos, m.Target)
 		} else {
@@ -2048,7 +2048,7 @@ func (m *monster) HandleTurn(g *game, ev event) {
 			if (m.Kind.Ranged() || m.Kind.Smiting()) && !m.FireReady && g.Player.LOS[m.P] {
 				m.FireReady = true
 			}
-			m.Path = m.Path[:len(m.Path)-1]
+			m.Path = m.Path[1:]
 		}
 	case m.State == Hunting && mons.State != Hunting:
 		r := RandInt(5)
@@ -2077,7 +2077,7 @@ func (m *monster) HandleTurn(g *game, ev event) {
 		}
 	case Distance(mons.P, g.Player.P) == 1:
 		m.Path = m.APath(g, mpos, m.Target)
-		if len(m.Path) < 2 || m.Path[len(m.Path)-2] == mons.P {
+		if len(m.Path) < 2 || m.Path[1] == mons.P {
 			mons.Obstructing = true
 		}
 	case mons.State == Hunting && m.State == Hunting || !g.Player.LOS[m.Target]:
