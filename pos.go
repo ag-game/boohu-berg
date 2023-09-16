@@ -69,21 +69,21 @@ func To(p gruid.Point, dir direction) gruid.Point {
 	to := p
 	switch dir {
 	case E, ENE, ESE:
-		to = p.Add(gruid.Point{1, 0})
+		to = p.Shift(1, 0)
 	case NE:
-		to = p.Add(gruid.Point{1, -1})
+		to = p.Shift(1, -1)
 	case NNE, N, NNW:
-		to = p.Add(gruid.Point{0, -1})
+		to = p.Shift(0, -1)
 	case NW:
-		to = p.Add(gruid.Point{-1, -1})
+		to = p.Shift(-1, -1)
 	case WNW, W, WSW:
-		to = p.Add(gruid.Point{-1, 0})
+		to = p.Shift(-1, 0)
 	case SW:
-		to = p.Add(gruid.Point{-1, 1})
+		to = p.Shift(-1, 1)
 	case SSW, S, SSE:
-		to = p.Add(gruid.Point{0, 1})
+		to = p.Shift(0, 1)
 	case SE:
-		to = p.Add(gruid.Point{1, 1})
+		to = p.Shift(1, 1)
 	}
 	return to
 }
@@ -149,7 +149,7 @@ func RandomNeighbor(p gruid.Point, diag bool) gruid.Point {
 }
 
 func RandomNeighborDiagonals(p gruid.Point) gruid.Point {
-	neighbors := [8]gruid.Point{p.Add(gruid.Point{1, 0}), p.Add(gruid.Point{-1, 0}), p.Add(gruid.Point{0, -1}), p.Add(gruid.Point{0, 1}), p.Add(gruid.Point{1, -1}), p.Add(gruid.Point{-1, -1}), p.Add(gruid.Point{1, 1}), p.Add(gruid.Point{-1, 1})}
+	neighbors := [8]gruid.Point{p.Shift(1, 0), p.Shift(-1, 0), p.Shift(0, -1), p.Shift(0, 1), p.Shift(1, -1), p.Shift(-1, -1), p.Shift(1, 1), p.Shift(-1, 1)}
 	var r int
 	switch RandInt(8) {
 	case 0:
@@ -163,7 +163,7 @@ func RandomNeighborDiagonals(p gruid.Point) gruid.Point {
 }
 
 func RandomNeighborCardinal(p gruid.Point) gruid.Point {
-	neighbors := [8]gruid.Point{p.Add(gruid.Point{1, 0}), p.Add(gruid.Point{-1, 0}), p.Add(gruid.Point{0, -1}), p.Add(gruid.Point{0, 1}), p.Add(gruid.Point{1, -1}), p.Add(gruid.Point{-1, -1}), p.Add(gruid.Point{1, 1}), p.Add(gruid.Point{-1, 1})}
+	neighbors := [8]gruid.Point{p.Shift(1, 0), p.Shift(-1, 0), p.Shift(0, -1), p.Shift(0, 1), p.Shift(1, -1), p.Shift(-1, -1), p.Shift(1, 1), p.Shift(-1, 1)}
 	var r int
 	switch RandInt(6) {
 	case 0:
@@ -187,21 +187,21 @@ func idx(p gruid.Point) int {
 func Laterals(p gruid.Point, dir direction) []gruid.Point {
 	switch dir {
 	case E, ENE, ESE:
-		return []gruid.Point{p.Add(gruid.Point{1, -1}), p.Add(gruid.Point{1, 1})}
+		return []gruid.Point{p.Shift(1, -1), p.Shift(1, 1)}
 	case NE:
-		return []gruid.Point{p.Add(gruid.Point{1, 0}), p.Add(gruid.Point{0, -1})}
+		return []gruid.Point{p.Shift(1, 0), p.Shift(0, -1)}
 	case N, NNE, NNW:
-		return []gruid.Point{p.Add(gruid.Point{-1, -1}), p.Add(gruid.Point{1, -1})}
+		return []gruid.Point{p.Shift(-1, -1), p.Shift(1, -1)}
 	case NW:
-		return []gruid.Point{p.Add(gruid.Point{-1, 0}), p.Add(gruid.Point{0, -1})}
+		return []gruid.Point{p.Shift(-1, 0), p.Shift(0, -1)}
 	case W, WNW, WSW:
-		return []gruid.Point{p.Add(gruid.Point{-1, 1}), p.Add(gruid.Point{-1, -1})}
+		return []gruid.Point{p.Shift(-1, 1), p.Shift(-1, -1)}
 	case SW:
-		return []gruid.Point{p.Add(gruid.Point{-1, 0}), p.Add(gruid.Point{0, 1})}
+		return []gruid.Point{p.Shift(-1, 0), p.Shift(0, 1)}
 	case S, SSW, SSE:
-		return []gruid.Point{p.Add(gruid.Point{-1, 1}), p.Add(gruid.Point{1, 1})}
+		return []gruid.Point{p.Shift(-1, 1), p.Shift(1, 1)}
 	case SE:
-		return []gruid.Point{p.Add(gruid.Point{0, 1}), p.Add(gruid.Point{1, 0})}
+		return []gruid.Point{p.Shift(0, 1), p.Shift(1, 0)}
 	default:
 		// should not happen
 		return []gruid.Point{}

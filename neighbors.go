@@ -3,7 +3,7 @@ package main
 import "codeberg.org/anaseto/gruid"
 
 func Neighbors(p gruid.Point, nb []gruid.Point, keep func(gruid.Point) bool) []gruid.Point {
-	neighbors := [8]gruid.Point{p.Add(gruid.Point{1, 0}), p.Add(gruid.Point{-1, 0}), p.Add(gruid.Point{0, -1}), p.Add(gruid.Point{0, 1}), p.Add(gruid.Point{1, -1}), p.Add(gruid.Point{-1, -1}), p.Add(gruid.Point{1, 1}), p.Add(gruid.Point{-1, 1})}
+	neighbors := [8]gruid.Point{p.Shift(1, 0), p.Shift(-1, 0), p.Shift(0, -1), p.Shift(0, 1), p.Shift(1, -1), p.Shift(-1, -1), p.Shift(1, 1), p.Shift(-1, 1)}
 	nb = nb[:0]
 	for _, npos := range neighbors {
 		if keep(npos) {
@@ -14,7 +14,7 @@ func Neighbors(p gruid.Point, nb []gruid.Point, keep func(gruid.Point) bool) []g
 }
 
 func CardinalNeighbors(p gruid.Point, nb []gruid.Point, keep func(gruid.Point) bool) []gruid.Point {
-	neighbors := [4]gruid.Point{p.Add(gruid.Point{1, 0}), p.Add(gruid.Point{-1, 0}), p.Add(gruid.Point{0, -1}), p.Add(gruid.Point{0, 1})}
+	neighbors := [4]gruid.Point{p.Shift(1, 0), p.Shift(-1, 0), p.Shift(0, -1), p.Shift(0, 1)}
 	nb = nb[:0]
 	for _, npos := range neighbors {
 		if keep(npos) {

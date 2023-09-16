@@ -902,14 +902,14 @@ func (g *game) GenCaveMapTree(h, w int) {
 	d.Cells = make([]cell, h*w)
 	center := gruid.Point{40, 10}
 	d.SetCell(center, FreeCell)
-	d.SetCell(center.Add(gruid.Point{1, 0}), FreeCell)
-	d.SetCell(center.Add(gruid.Point{1, -1}), FreeCell)
-	d.SetCell(center.Add(gruid.Point{0, 1}), FreeCell)
-	d.SetCell(center.Add(gruid.Point{1, 1}), FreeCell)
-	d.SetCell(center.Add(gruid.Point{0, -1}), FreeCell)
-	d.SetCell(center.Add(gruid.Point{-1, -1}), FreeCell)
-	d.SetCell(center.Add(gruid.Point{-1, 0}), FreeCell)
-	d.SetCell(center.Add(gruid.Point{-1, 1}), FreeCell)
+	d.SetCell(center.Shift(1, 0), FreeCell)
+	d.SetCell(center.Shift(1, -1), FreeCell)
+	d.SetCell(center.Shift(0, 1), FreeCell)
+	d.SetCell(center.Shift(1, 1), FreeCell)
+	d.SetCell(center.Shift(0, -1), FreeCell)
+	d.SetCell(center.Shift(-1, -1), FreeCell)
+	d.SetCell(center.Shift(-1, 0), FreeCell)
+	d.SetCell(center.Shift(-1, 1), FreeCell)
 	max := 21 * 23
 	cells := 1
 	diag := RandInt(2) == 0
@@ -1541,24 +1541,24 @@ func (g *game) DoorCandidate(p gruid.Point) bool {
 	if !valid(p) || d.Cell(p).T != FreeCell {
 		return false
 	}
-	return valid(p.Add(gruid.Point{-1, 0})) && valid(p.Add(gruid.Point{1, 0})) &&
-		d.Cell(p.Add(gruid.Point{-1, 0})).T == FreeCell && d.Cell(p.Add(gruid.Point{1, 0})).T == FreeCell &&
-		!g.Doors[p.Add(gruid.Point{-1, 0})] && !g.Doors[p.Add(gruid.Point{1, 0})] &&
-		(!valid(p.Add(gruid.Point{0, -1})) || d.Cell(p.Add(gruid.Point{0, -1})).T == WallCell) &&
-		(!valid(p.Add(gruid.Point{0, 1})) || d.Cell(p.Add(gruid.Point{0, 1})).T == WallCell) &&
-		((valid(p.Add(gruid.Point{-1, -1})) && d.Cell(p.Add(gruid.Point{-1, -1})).T == FreeCell) ||
-			(valid(p.Add(gruid.Point{-1, 1})) && d.Cell(p.Add(gruid.Point{-1, 1})).T == FreeCell) ||
-			(valid(p.Add(gruid.Point{1, -1})) && d.Cell(p.Add(gruid.Point{1, -1})).T == FreeCell) ||
-			(valid(p.Add(gruid.Point{1, 1})) && d.Cell(p.Add(gruid.Point{1, 1})).T == FreeCell)) ||
-		valid(p.Add(gruid.Point{0, -1})) && valid(p.Add(gruid.Point{0, 1})) &&
-			d.Cell(p.Add(gruid.Point{0, -1})).T == FreeCell && d.Cell(p.Add(gruid.Point{0, 1})).T == FreeCell &&
-			!g.Doors[p.Add(gruid.Point{0, -1})] && !g.Doors[p.Add(gruid.Point{0, 1})] &&
-			(!valid(p.Add(gruid.Point{1, 0})) || d.Cell(p.Add(gruid.Point{1, 0})).T == WallCell) &&
-			(!valid(p.Add(gruid.Point{-1, 0})) || d.Cell(p.Add(gruid.Point{-1, 0})).T == WallCell) &&
-			((valid(p.Add(gruid.Point{-1, -1})) && d.Cell(p.Add(gruid.Point{-1, -1})).T == FreeCell) ||
-				(valid(p.Add(gruid.Point{-1, 1})) && d.Cell(p.Add(gruid.Point{-1, 1})).T == FreeCell) ||
-				(valid(p.Add(gruid.Point{1, -1})) && d.Cell(p.Add(gruid.Point{1, -1})).T == FreeCell) ||
-				(valid(p.Add(gruid.Point{1, 1})) && d.Cell(p.Add(gruid.Point{1, 1})).T == FreeCell))
+	return valid(p.Shift(-1, 0)) && valid(p.Shift(1, 0)) &&
+		d.Cell(p.Shift(-1, 0)).T == FreeCell && d.Cell(p.Shift(1, 0)).T == FreeCell &&
+		!g.Doors[p.Shift(-1, 0)] && !g.Doors[p.Shift(1, 0)] &&
+		(!valid(p.Shift(0, -1)) || d.Cell(p.Shift(0, -1)).T == WallCell) &&
+		(!valid(p.Shift(0, 1)) || d.Cell(p.Shift(0, 1)).T == WallCell) &&
+		((valid(p.Shift(-1, -1)) && d.Cell(p.Shift(-1, -1)).T == FreeCell) ||
+			(valid(p.Shift(-1, 1)) && d.Cell(p.Shift(-1, 1)).T == FreeCell) ||
+			(valid(p.Shift(1, -1)) && d.Cell(p.Shift(1, -1)).T == FreeCell) ||
+			(valid(p.Shift(1, 1)) && d.Cell(p.Shift(1, 1)).T == FreeCell)) ||
+		valid(p.Shift(0, -1)) && valid(p.Shift(0, 1)) &&
+			d.Cell(p.Shift(0, -1)).T == FreeCell && d.Cell(p.Shift(0, 1)).T == FreeCell &&
+			!g.Doors[p.Shift(0, -1)] && !g.Doors[p.Shift(0, 1)] &&
+			(!valid(p.Shift(1, 0)) || d.Cell(p.Shift(1, 0)).T == WallCell) &&
+			(!valid(p.Shift(-1, 0)) || d.Cell(p.Shift(-1, 0)).T == WallCell) &&
+			((valid(p.Shift(-1, -1)) && d.Cell(p.Shift(-1, -1)).T == FreeCell) ||
+				(valid(p.Shift(-1, 1)) && d.Cell(p.Shift(-1, 1)).T == FreeCell) ||
+				(valid(p.Shift(1, -1)) && d.Cell(p.Shift(1, -1)).T == FreeCell) ||
+				(valid(p.Shift(1, 1)) && d.Cell(p.Shift(1, 1)).T == FreeCell))
 }
 
 func (g *game) PutDoors(percentage int) {
