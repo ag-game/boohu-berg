@@ -12,4 +12,6 @@ boohu
 *.js
 *.map
 *.html
+*.exe
 boohu.wasm
+rewrite.sh
