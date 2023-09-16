@@ -1982,7 +1982,7 @@ func (m *monster) HandleTurn(g *game, ev event) {
 		}
 	}
 	m.Obstructing = false
-	if !(len(m.Path) > 0 && m.Path[0] == m.Target && m.Path[len(m.Path)-1] == mpos) {
+	if !(len(m.Path) > 0 && m.Path[0] == mpos && m.Path[len(m.Path)-1] == m.Target) {
 		m.Path = m.APath(g, mpos, m.Target)
 		if len(m.Path) == 0 && !m.Status(MonsConfused) {
 			// if target is not accessible, try free neighbor cells
