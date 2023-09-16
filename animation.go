@@ -17,11 +17,11 @@ func (ui *gameui) SwappingAnimation(mpos, ppos gruid.Point) {
 	ui.DrawAtPosition(mpos, true, 'Φ', fgm, bgColorp)
 	ui.DrawAtPosition(ppos, true, 'Φ', ColorFgPlayer, bgColorm)
 	ui.Flush()
-	time.Sleep(75 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 	ui.DrawAtPosition(mpos, true, 'Φ', ColorFgPlayer, bgColorp)
 	ui.DrawAtPosition(ppos, true, 'Φ', fgm, bgColorm)
 	ui.Flush()
-	time.Sleep(75 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 }
 
 func (ui *gameui) TeleportAnimation(from, to gruid.Point, showto bool) {
@@ -132,7 +132,6 @@ func (ui *gameui) ExplosionAnimation(es explosionStyle, p gruid.Point) {
 		ui.Flush()
 		time.Sleep(100 * time.Millisecond)
 	}
-	time.Sleep(20 * time.Millisecond)
 }
 
 func (ui *gameui) TormentExplosionAnimation() {
@@ -154,7 +153,6 @@ func (ui *gameui) TormentExplosionAnimation() {
 		ui.Flush()
 		time.Sleep(100 * time.Millisecond)
 	}
-	time.Sleep(20 * time.Millisecond)
 }
 
 func (ui *gameui) WallExplosionAnimation(p gruid.Point) {
@@ -198,7 +196,6 @@ func (ui *gameui) FireBoltAnimation(ray []gruid.Point) {
 		ui.Flush()
 		time.Sleep(100 * time.Millisecond)
 	}
-	time.Sleep(25 * time.Millisecond)
 }
 
 func (ui *gameui) SlowingMagaraAnimation(ray []gruid.Point) {
@@ -222,7 +219,6 @@ func (ui *gameui) SlowingMagaraAnimation(ray []gruid.Point) {
 		ui.Flush()
 		time.Sleep(100 * time.Millisecond)
 	}
-	time.Sleep(25 * time.Millisecond)
 }
 
 func (ui *gameui) ProjectileSymbol(dir direction) (r rune) {
@@ -258,7 +254,6 @@ func (ui *gameui) ThrowAnimation(ray []gruid.Point, hit bool) {
 		p := ray[0]
 		ui.HitAnimation(p, true)
 	}
-	time.Sleep(30 * time.Millisecond)
 }
 
 func (ui *gameui) MonsterJavelinAnimation(ray []gruid.Point, hit bool) {
@@ -276,7 +271,6 @@ func (ui *gameui) MonsterJavelinAnimation(ray []gruid.Point, hit bool) {
 		time.Sleep(30 * time.Millisecond)
 		ui.DrawAtPosition(p, true, r, fgColor, bgColor)
 	}
-	time.Sleep(30 * time.Millisecond)
 }
 
 func (ui *gameui) HitAnimation(p gruid.Point, targeting bool) {
@@ -318,7 +312,7 @@ func (ui *gameui) LightningHitAnimation(targets []gruid.Point) {
 			}
 		}
 		ui.Flush()
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(75 * time.Millisecond)
 	}
 }
 
@@ -345,14 +339,14 @@ func (ui *gameui) DrinkingPotionAnimation() {
 		return
 	}
 	ui.DrawDungeonView(NoFlushMode)
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(25 * time.Millisecond)
 	r, fg, bg := ui.PositionDrawing(g.Player.P)
 	ui.DrawAtPosition(g.Player.P, false, r, ColorGreen, bg)
 	ui.Flush()
-	time.Sleep(75 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 	ui.DrawAtPosition(g.Player.P, false, r, ColorYellow, bg)
 	ui.Flush()
-	time.Sleep(75 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 	ui.DrawAtPosition(g.Player.P, false, r, fg, bg)
 	ui.Flush()
 }
