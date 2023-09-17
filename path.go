@@ -40,6 +40,7 @@ func (dp *dungeonPath) Estimation(from, to gruid.Point) int {
 type playerPath struct {
 	game *game
 	nbs  paths.Neighbors
+	goal gruid.Point
 }
 
 func (pp *playerPath) Neighbors(p gruid.Point) []gruid.Point {
@@ -51,10 +52,16 @@ func (pp *playerPath) Neighbors(p gruid.Point) []gruid.Point {
 		return valid(np) && ((d.Cell(np).T == FreeCell && !pp.game.WrongWall[np] || d.Cell(np).T == WallCell && pp.game.WrongWall[np]) || pp.game.Player.HasStatus(StatusDig)) &&
 			d.Cell(np).Explored
 	}
+	var nb []gruid.Point
 	if pp.game.Player.HasStatus(StatusConfusion) {
-		return pp.nbs.Cardinal(p, keep)
+		nb = pp.nbs.Cardinal(p, keep)
+	} else {
+		nb = pp.nbs.All(p, keep)
 	}
-	return pp.nbs.All(p, keep)
+	sort.Slice(nb, func(i, j int) bool {
+		return paths.DistanceManhattan(nb[i], pp.goal) <= paths.DistanceManhattan(nb[j], pp.goal)
+	})
+	return nb
 }
 
 func (pp *playerPath) Cost(from, to gruid.Point) int {
@@ -183,7 +190,7 @@ func (m *monster) APath(g *game, from, to gruid.Point) []gruid.Point {
 }
 
 func (g *game) PlayerPath(from, to gruid.Point) []gruid.Point {
-	pp := &playerPath{game: g}
+	pp := &playerPath{game: g, goal: to}
 	path := g.PR.AstarPath(pp, from, to)
 	if len(path) == 0 {
 		return nil
