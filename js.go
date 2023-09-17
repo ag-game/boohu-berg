@@ -385,9 +385,7 @@ func init() {
 	ReqFrame = make(chan bool)
 }
 
-func (ui *gameui) Close() {
-	// TODO
-}
+func (ui *gameui) Close() {}
 
 func (ui *gameui) Flush() {
 	ReqFrame <- true
