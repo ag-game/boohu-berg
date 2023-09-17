@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math/rand"
 	"sort"
 
 	"codeberg.org/anaseto/gruid"
@@ -152,10 +153,16 @@ func (mp *monPath) Neighbors(p gruid.Point) []gruid.Point {
 	keep := func(np gruid.Point) bool {
 		return valid(np) && (d.Cell(np).T != WallCell || mp.wall)
 	}
+	var nb []gruid.Point
 	if mp.monster.Status(MonsConfused) {
-		return mp.nbs.Cardinal(p, keep)
+		nb = mp.nbs.Cardinal(p, keep)
+	} else {
+		nb = mp.nbs.All(p, keep)
 	}
-	return mp.nbs.All(p, keep)
+	rand.Shuffle(len(nb), func(i, j int) {
+		nb[i], nb[j] = nb[j], nb[i]
+	})
+	return nb
 }
 
 func (mp *monPath) Cost(from, to gruid.Point) int {
