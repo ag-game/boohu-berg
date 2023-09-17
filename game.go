@@ -8,7 +8,7 @@ import (
 	"codeberg.org/anaseto/gruid/paths"
 )
 
-var Version string = "v0.14-dev"
+var Version string = "v0.14"
 
 type game struct {
 	Dungeon             *dungeon

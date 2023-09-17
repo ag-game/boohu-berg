@@ -1,4 +1,4 @@
-v0.14-dev
+v0.14 2023-09-17
 
 + Update dependencies and README instructions.
 + New field of view algorithm backported and adapted from Harmonist using
