@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"runtime"
 	"syscall/js"
 	"time"
 	"unicode/utf8"
@@ -52,13 +51,9 @@ func newGame(ui *gameui) {
 	}
 	ApplyConfig()
 	ui.PostConfig()
-	if runtime.GOARCH != "wasm" {
-		ui.DrawWelcome()
-	} else {
-		again := ui.HandleStartMenu()
-		if again {
-			return
-		}
+	again := ui.HandleStartMenu()
+	if again {
+		return
 	}
 	load, err = g.Load()
 	if !load {
@@ -180,9 +175,6 @@ func (g *game) DataDir() (string, error) {
 }
 
 func (g *game) Save() error {
-	if runtime.GOARCH != "wasm" {
-		return errors.New("Saving games is not available in the web html version.") // TODO remove when it works
-	}
 	save, err := g.GameSave()
 	if err != nil {
 		SaveError = err.Error()
@@ -200,9 +192,6 @@ func (g *game) Save() error {
 }
 
 func (g *game) SaveConfig() error {
-	if runtime.GOARCH != "wasm" {
-		return nil
-	}
 	conf, err := GameConfig.ConfigSave()
 	if err != nil {
 		SaveError = err.Error()
@@ -220,9 +209,6 @@ func (g *game) SaveConfig() error {
 }
 
 func (g *game) SaveReplay() error {
-	if runtime.GOARCH != "wasm" {
-		return nil
-	}
 	storage := js.Global().Get("localStorage")
 	if storage.Type() != js.TypeObject {
 		SaveError = "localStorage not found"
@@ -256,7 +242,7 @@ func (g *game) Load() (bool, error) {
 		return true, errors.New("localStorage not found")
 	}
 	save := storage.Call("getItem", "boohusave")
-	if save.Type() != js.TypeString || runtime.GOARCH != "wasm" {
+	if save.Type() != js.TypeString {
 		return false, nil
 	}
 	s, err := base64.StdEncoding.DecodeString(save.String())
@@ -269,8 +255,6 @@ func (g *game) Load() (bool, error) {
 	}
 	*g = *lg
 
-	// // XXX: gob encoding works badly with gopherjs, it seems, some maps get broken
-
 	return true, nil
 }
 
@@ -280,7 +264,7 @@ func (g *game) LoadConfig() (bool, error) {
 		return true, errors.New("localStorage not found")
 	}
 	conf := storage.Call("getItem", "boohuconfig")
-	if conf.Type() != js.TypeString || runtime.GOARCH != "wasm" {
+	if conf.Type() != js.TypeString {
 		return false, nil
 	}
 	s, err := base64.StdEncoding.DecodeString(conf.String())
@@ -304,7 +288,7 @@ func (g *game) LoadReplay() error {
 		return errors.New("localStorage not found")
 	}
 	save := storage.Call("getItem", "boohureplay")
-	if save.Type() != js.TypeString || runtime.GOARCH != "wasm" {
+	if save.Type() != js.TypeString {
 		return errors.New("invalid storage")
 	}
 	data, err := base64.StdEncoding.DecodeString(save.String())
